@@ -1,3 +1,5 @@
+; $Id$
+
 name = Out of stock notificator
 description = It tells the user if an item is out of stock. It supports attributes.
 dependencies =  uc_stock
