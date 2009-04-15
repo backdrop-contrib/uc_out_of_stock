@@ -3,7 +3,7 @@
 
 define ('UC_OUT_OF_STOCK_DEFAULT_HTML', t('<span style="color: red;">Out of stock</span>'));
 
-function uc_out_of_stock_form_alter($form_id, &$form) {
+function uc_out_of_stock_form_alter(&$form, $form_state, $form_id) {
   $id = 'uc_product_add_to_cart_form';
   if ( substr($form_id, 0, strlen($id)) == $id ) {
     drupal_add_js(drupal_get_path('module', 'uc_out_of_stock') . '/uc_out_of_stock.js');
@@ -11,30 +11,24 @@ function uc_out_of_stock_form_alter($form_id, &$form) {
   }
 }
 
-function uc_out_of_stock_menu($may_cache) {
+function uc_out_of_stock_menu() {
   $items = array();
-  if ($may_cache) {
 
-  }
-  else {
-    $items[] = array(
-      'path' => 'admin/store/settings/uc_out_of_stock',
-      'title' => t('Out of Stock Settings'),
-      'access' => user_access('administer store'),
-      'description' => t('Configure out of stock settings.'),
-      'callback' => 'drupal_get_form',
-      'callback arguments' => array('uc_out_of_stock_settings'),
-      'type' => MENU_NORMAL_ITEM,
-    );
+  $items['admin/store/settings/uc_out_of_stock'] = array(
+    'title' => t('Out of Stock Settings'),
+    'access arguments' => user_access('administer store'),
+    'description' => t('Configure out of stock settings.'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('uc_out_of_stock_settings'),
+    'type' => MENU_NORMAL_ITEM,
+  );
 
-    $items[] = array(
-      'path' => 'uc_out_of_stock/query',
-      'title' => 'stock query',
-      'callback' => 'uc_out_of_stock_query',
-      'access' => true,
-      'type' => MENU_CALLBACK,
-    );
-  }
+  $items['uc_out_of_stock/query'] = array(
+    'title' => 'stock query',
+    'page callback' => 'uc_out_of_stock_query',
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
+  );
 
   return $items;
 }
@@ -51,10 +45,14 @@ function uc_out_of_stock_query() {
   }
 
   // if attributes module exists, and product has attributes first search for attributes
-  if (module_exists('uc_attribute') && count($attrs) && db_num_rows($result = db_query("SELECT * FROM {uc_product_adjustments} upa LEFT JOIN {uc_product_stock} ups ON ups.sku = upa.model WHERE upa.nid = %d", $nid)) > 0) {
+  $sql = "SELECT %s FROM {uc_product_adjustments} upa LEFT JOIN {uc_product_stock} ups ON ups.sku = upa.model WHERE upa.nid = %d";
+  if (module_exists('uc_attribute') && count($attrs) && db_result(db_query($sql, 'COUNT(*)', $nid)) > 0) {
+    $result = db_query($sql, '*', $nid);
     while ($row = db_fetch_object($result)) {
       $combination = unserialize($row->combination);
-      if ( $combination == $attrs ) {
+      // Apparently, on D6, one entry of the stock table has always the main SKU regardless the adjustments settings
+      // Therefor, if the join gives a null record for the stock table, the main sku will be queried as well
+      if ( isset($row->sku) && $combination == $attrs ) {
         $combination_found = TRUE;
         // Only check if active
         if ($row->active) {

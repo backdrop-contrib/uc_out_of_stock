@@ -32,11 +32,6 @@ $(document).ready(function(){
       }
     });
 
-    // Put back the normal HTML of the add to cart form before deciding
-    // if a request to the server is needed.
-    $(".uc_out_of_stock_html", form).html('');
-    $("input:submit", form).show();
-
     // finding if attributes are found with no value
     attributes.found.length = attributes.value.length = 0;
     for (var i in attributes.found) {
@@ -50,11 +45,14 @@ $(document).ready(function(){
       }
     }
     if (attributes.found.length != attributes.value.length) {
+      // Put back the normal HTML of the add to cart form
+      $(".uc_out_of_stock_html", form).html('');
+      $("input:submit", form).show();
       return;
     }
 
     $(".uc_out_of_stock_throbbing", form).addClass('uc_oos_throbbing');
-    $.post(Drupal.settings.base_path+'uc_out_of_stock/query', product, function (data, textStatus) {
+    $.post(Drupal.settings.basePath+'uc_out_of_stock/query', product, function (data, textStatus) {
       // textStatus can be one of:
       //   "timeout"
       //   "error"
@@ -67,6 +65,10 @@ $(document).ready(function(){
         html = data[1];
         $("input:submit", form).hide();
         $(".uc_out_of_stock_html", form).html(html);
+      } else {
+        // Put back the normal HTML of the add to cart form
+        $(".uc_out_of_stock_html", form).html('');
+        $("input:submit", form).show();
       }
 
       $(".uc_out_of_stock_throbbing", form).removeClass('uc_oos_throbbing');
