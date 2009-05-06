@@ -15,9 +15,9 @@ function uc_out_of_stock_menu() {
   $items = array();
 
   $items['admin/store/settings/uc_out_of_stock'] = array(
-    'title' => t('Out of Stock Settings'),
-    'access arguments' => user_access('administer store'),
-    'description' => t('Configure out of stock settings.'),
+    'title' => 'Out of Stock Settings',
+    'access arguments' => array('administer store'),
+    'description' => 'Configure out of stock settings.',
     'page callback' => 'drupal_get_form',
     'page arguments' => array('uc_out_of_stock_settings'),
     'type' => MENU_NORMAL_ITEM,
