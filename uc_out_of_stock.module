@@ -4,10 +4,12 @@
 define ('UC_OUT_OF_STOCK_DEFAULT_HTML', t('<span style="color: red;">Out of stock</span>'));
 
 function uc_out_of_stock_form_alter(&$form, $form_state, $form_id) {
-  $id = 'uc_product_add_to_cart_form';
-  if ( substr($form_id, 0, strlen($id)) == $id ) {
-    drupal_add_js(drupal_get_path('module', 'uc_out_of_stock') . '/uc_out_of_stock.js');
-    drupal_add_css(drupal_get_path('module', 'uc_out_of_stock') . '/uc_out_of_stock.css');
+  $forms = array('uc_product_add_to_cart_form', 'uc_catalog_buy_it_now_form');
+  foreach ($forms as $id) {
+    if ( substr($form_id, 0, strlen($id)) == $id ) {
+      drupal_add_js(drupal_get_path('module', 'uc_out_of_stock') . '/uc_out_of_stock.js');
+      drupal_add_css(drupal_get_path('module', 'uc_out_of_stock') . '/uc_out_of_stock.css');
+    }
   }
 }
 
@@ -45,8 +47,11 @@ function uc_out_of_stock_query() {
   }
 
   // if attributes module exists, and product has attributes first search for attributes
+  // if attributes module exists, and product has attributes first search for attributes
+  $post_attrs = count($attrs);
   $sql = "SELECT %s FROM {uc_product_adjustments} upa LEFT JOIN {uc_product_stock} ups ON ups.sku = upa.model WHERE upa.nid = %d";
-  if (module_exists('uc_attribute') && count($attrs) && db_result(db_query($sql, 'COUNT(*)', $nid)) > 0) {
+  $db_attrs = db_result(db_query($sql, 'COUNT(*)', $nid));
+  if (module_exists('uc_attribute') && $post_attrs && $db_attrs > 0) {
     $result = db_query($sql, '*', $nid);
     while ($row = db_fetch_object($result)) {
       $combination = unserialize($row->combination);
@@ -71,7 +76,15 @@ function uc_out_of_stock_query() {
     }
   }
   else {
-    $query_main_sku = TRUE;
+    // If there are attributes for the product, but no attributes were sent, do nothing
+    // as it's probably coming from the catalog table list view and we can't
+    // disable the add to cart button for products with attributes
+    if ($post_attrs == 0 && $db_attrs > 0) {
+      $query_main_sku = FALSE;
+    }
+    else {
+      $query_main_sku = TRUE;
+    }
   }
 
   if ($query_main_sku) {

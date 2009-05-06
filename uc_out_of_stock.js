@@ -2,14 +2,15 @@
 
 $(document).ready(function(){
   // Your code here
-  //$("form[@id*=uc-product-add-to-cart-form]").css("border","2px solid");
-  formid = 'uc-product-add-to-cart-form';
   attrid = 'edit-attributes';
 
   function checkStock(form) {
     var product = new Object();
     var attributes = new Object();
-    product.nid = form.attr('id').substring(formid.length+1);
+    var formid_data = new Array();
+
+    formid_data = form.attr('id').split('-')
+    product.nid = formid_data[formid_data.length-1];
     attributes.found = new Object();
     attributes.value = new Object();
 
@@ -86,7 +87,16 @@ $(document).ready(function(){
     $(":input[@name*=attributes]:not(:text)", $(this)).change(function(){
       checkStock(eachForm);
     });
-
   });
 
+  $("form[@id*=uc-catalog-buy-it-now-form]").each(function(index) {
+    var eachForm;
+    $("input:submit", $(this)).before('<div class="uc_out_of_stock_throbbing">&nbsp;&nbsp;&nbsp;&nbsp;</div> ');
+    $("input:submit", $(this)).after('<div class="uc_out_of_stock_html"></div');
+
+    eachForm = $(this);
+    checkStock(eachForm);
+
+    // This form has no possible attributes
+  });
 });
