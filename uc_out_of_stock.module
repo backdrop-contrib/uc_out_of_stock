@@ -104,32 +104,6 @@ function uc_out_of_stock_query() {
   }
 }
 
-/**
- * 		the settings form
- */
-function uc_out_of_stock_settings_submit($form_id, $form_values) {
-  $op = isset($form_values['op']) ? $form_values['op'] : '';
-
-  if ($op == t('Reset to defaults')) {
-    variable_del('uc_out_of_stock_text');
-    variable_del('uc_out_of_stock_format');
-  }
-  else {
-    variable_set('uc_out_of_stock_text', $form_values['uc_out_of_stock_text']);
-    variable_set('uc_out_of_stock_format', $form_values['format']);
-  }
-
-  if ($op == t('Reset to defaults')) {
-    drupal_set_message(t('The configuration options have been reset to their default values.'));
-  }
-  else {
-    drupal_set_message(t('The configuration options have been saved.'));
-  }
-
-  menu_rebuild();
-}
-
-
 function uc_out_of_stock_settings() {
   $text = check_markup(variable_get('uc_out_of_stock_text', UC_OUT_OF_STOCK_DEFAULT_HTML), variable_get('uc_out_of_stock_format', FILTER_FORMAT_DEFAULT), FALSE);
   $description = '<div class="description">This is the value below rendered as you would expect to see it</div>';
@@ -147,10 +121,7 @@ function uc_out_of_stock_settings() {
     '#description' => t('The HTML that will replace the Add To Cart button if no stock is available.'),
   );
 
-  $form['uc_out_of_stock_format'] = filter_form(variable_get('uc_out_of_stock_format', FILTER_FORMAT_DEFAULT));
+  $form['uc_out_of_stock_format'] = filter_form(variable_get('uc_out_of_stock_format', FILTER_FORMAT_DEFAULT), NULL, array('uc_out_of_stock_format'));
 
-  $form['buttons']['submit'] = array('#type' => 'submit', '#value' => t('Save configuration') );
-  $form['buttons']['reset'] = array('#type' => 'submit', '#value' => t('Reset to defaults') );
-
-  return $form;
+  return system_settings_form($form);
 }
