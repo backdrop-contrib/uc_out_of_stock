@@ -215,12 +215,15 @@ function uc_out_of_stock_validate_cartform($form, &$form_state) {
   $items = $form_state['values']['items'];
   // unserialize data
   foreach ($items as $k => $item) {
-    $data = unserialize($item['data']);
-    $stockinfo = uc_out_of_stock_getstockinfo($item['nid'], $data['attributes']);
-    $qty = $item['qty'];
-    if ($stockinfo) {
-      if ($stockinfo['stock'] - $qty < 0) {
-        uc_out_of_stock_validate_form_errors('not_enough', $item['nid'], $data['attributes'], $stockinfo['stock'], $qty, $k);
+    // Validate unless the item was being removed
+    if (!$item['remove']) {
+      $data = unserialize($item['data']);
+      $stockinfo = uc_out_of_stock_getstockinfo($item['nid'], $data['attributes']);
+      $qty = $item['qty'];
+      if ($stockinfo) {
+        if ($stockinfo['stock'] - $qty < 0) {
+          uc_out_of_stock_validate_form_errors('not_enough', $item['nid'], $data['attributes'], $stockinfo['stock'], $qty, $k);
+        }
       }
     }
   }
