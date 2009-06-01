@@ -59,41 +59,40 @@ function uc_out_of_stock_menu() {
  ***************************/
 
 function uc_out_of_stock_getstockinfo($nid, $attrs) {
-  // if attributes module exists, and product has attributes first search for attributes
-  $post_attrs = count($attrs);
-  $sql = "SELECT %s FROM {uc_product_adjustments} upa LEFT JOIN {uc_product_stock} ups ON ups.sku = upa.model WHERE upa.nid = %d";
-  $db_attrs = db_result(db_query($sql, 'COUNT(*)', $nid));
-  if (module_exists('uc_attribute') && $post_attrs && $db_attrs > 0) {
-    $result = db_query($sql, '*', $nid);
-    while ($row = db_fetch_object($result)) {
-      $combination = unserialize($row->combination);
-      // Apparently, on D6, one entry of the stock table has always the main SKU regardless the adjustments settings
-      // Therefor, if the join gives a null record for the stock table, the main sku will be queried as well
-      if ( isset($row->sku) && $combination == $attrs ) {
-        $combination_found = TRUE;
-        // Only check if active
-        if ($row->active) {
-          $stockinfo['stock'] = $row->stock;
-          $stockinfo['model'] = $row->model;
+  // Query main sku is true by default, if some attribute combination is found,
+  // it will be set to FALSE
+  // If the combination was not found, and all attributes were indeed selected, we are assuming that some
+  // combination shares an SKU with the actual product, thus, the product have to be queried as well.
+  $query_main_sku = TRUE;
+  if (module_exists('uc_attribute')) {
+    // if attributes module exists, and product has attributes first search for attributes
+    $post_attrs = count($attrs);
+    $sql = "SELECT %s FROM {uc_product_adjustments} upa LEFT JOIN {uc_product_stock} ups ON ups.sku = upa.model WHERE upa.nid = %d";
+    $db_attrs = db_result(db_query($sql, 'COUNT(*)', $nid));
+    if ($post_attrs && $db_attrs > 0) {
+      $result = db_query($sql, '*', $nid);
+      while ($row = db_fetch_object($result)) {
+        $combination = unserialize($row->combination);
+        // Apparently, on D6, one entry of the stock table has always the main SKU regardless the adjustments settings
+        // Therefor, if the join gives a null record for the stock table, the main sku will be queried as well
+        if ( isset($row->sku) && $combination == $attrs ) {
+          // Because a combination is found, don't look for the main SKU
+          $query_main_sku = FALSE;
+          // Only check if active
+          if ($row->active) {
+            $stockinfo['stock'] = $row->stock;
+            $stockinfo['model'] = $row->model;
+          }
         }
       }
     }
-
-    // If the combination was not found, and all attributes were indeed selected, we are assuming that some
-    // combination shares an SKU with the actual product, thus, the product have to be queried as well.
-    if (!$combination_found) {
-      $query_main_sku = TRUE;
-    }
-  }
-  else {
-    // If there are attributes for the product, but no attributes were sent, do nothing
-    // as it's probably coming from the catalog table list view and we can't
-    // disable the add to cart button for products with attributes
-    if ($post_attrs == 0 && $db_attrs > 0) {
-      $query_main_sku = FALSE;
-    }
     else {
-      $query_main_sku = TRUE;
+      // If there are attributes for the product, but no attributes were sent, do nothing
+      // as it's probably coming from the catalog table list view and we can't
+      // disable the add to cart button for products with attributes
+      if ($post_attrs == 0 && $db_attrs > 0) {
+        $query_main_sku = FALSE;
+      }
     }
   }
 
