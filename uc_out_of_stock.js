@@ -48,7 +48,7 @@ $(document).ready(function(){
     if (attributes.found.length != attributes.value.length) {
       // Put back the normal HTML of the add to cart form
       $(".uc_out_of_stock_html", form).html('');
-      $("input:submit", form).show();
+      $("input:submit.node-add-to-cart,input:submit.list-add-to-cart", form).show();
       return;
     }
 
@@ -64,12 +64,12 @@ $(document).ready(function(){
       stock = data[0];
       if (stock == parseInt(stock) && stock <= 0 && data.length == 2) {
         html = data[1];
-        $("input:submit", form).hide();
+        $("input:submit.node-add-to-cart,input:submit.list-add-to-cart", form).hide();
         $(".uc_out_of_stock_html", form).html(html);
       } else {
         // Put back the normal HTML of the add to cart form
         $(".uc_out_of_stock_html", form).html('');
-        $("input:submit", form).show();
+        $("input:submit.node-add-to-cart,input:submit.list-add-to-cart", form).show();
       }
 
       $(".uc_out_of_stock_throbbing", form).removeClass('uc_oos_throbbing');
@@ -78,8 +78,8 @@ $(document).ready(function(){
 
   $("form[@id*=uc-product-add-to-cart-form]").each(function(index) {
     var eachForm;
-    $("input:submit", $(this)).before('<div class="uc_out_of_stock_throbbing">&nbsp;&nbsp;&nbsp;&nbsp;</div> ');
-    $("input:submit", $(this)).after('<div class="uc_out_of_stock_html"></div');
+    $("input:submit.node-add-to-cart,input:submit.list-add-to-cart", $(this)).before('<div class="uc_out_of_stock_throbbing">&nbsp;&nbsp;&nbsp;&nbsp;</div> ');
+    $("input:submit.node-add-to-cart,input:submit.list-add-to-cart", $(this)).after('<div class="uc_out_of_stock_html"></div');
 
     eachForm = $(this);
     checkStock(eachForm);
@@ -91,8 +91,8 @@ $(document).ready(function(){
 
   $("form[@id*=uc-catalog-buy-it-now-form]").each(function(index) {
     var eachForm;
-    $("input:submit", $(this)).before('<div class="uc_out_of_stock_throbbing">&nbsp;&nbsp;&nbsp;&nbsp;</div> ');
-    $("input:submit", $(this)).after('<div class="uc_out_of_stock_html"></div');
+    $("input:submit.node-add-to-cart,input:submit.list-add-to-cart", $(this)).before('<div class="uc_out_of_stock_throbbing">&nbsp;&nbsp;&nbsp;&nbsp;</div> ');
+    $("input:submit.node-add-to-cart,input:submit.list-add-to-cart", $(this)).after('<div class="uc_out_of_stock_html"></div');
 
     eachForm = $(this);
     checkStock(eachForm);
