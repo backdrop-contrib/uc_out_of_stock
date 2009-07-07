@@ -177,7 +177,7 @@ function uc_out_of_stock_validate_addtocart($nid, $attrs) {
       $qty = 0;
       $items = uc_cart_get_contents();
       foreach ($items as $item) {
-        if ($item->nid == $nid && (!count($attrs) || count($attrs) && $item->data['attributes'] == $attrs) || $stockinfo['model'] == $item->model) {
+        if ($item->nid == $nid && (!count($attrs) || count($attrs) && $item->data['attributes'] == $attrs || $stockinfo['model'] == $item->model)) {
           $qty += $item->qty;
         }
       }
