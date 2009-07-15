@@ -9,8 +9,7 @@ $(document).ready(function(){
     var attributes = new Object();
     var formid_data = new Array();
 
-    formid_data = form.attr('id').split('-')
-    product.nid = formid_data[formid_data.length-1];
+    product.nid = form.attr('id').match(/(?:uc-product-add-to-cart-form-|catalog-buy-it-now-form-)([0-9]+)/)[1];
     attributes.found = new Object();
     attributes.value = new Object();
 
