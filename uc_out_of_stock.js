@@ -32,6 +32,13 @@ $(document).ready(function(){
       }
     });
 
+    // find qty
+    product['qty'] = 1;
+    qty = $(":input[@name=qty]", form).val()
+    if (qty) {
+      product['qty'] = qty;
+    }
+
     // finding if attributes are found with no value
     attributes.found.length = attributes.value.length = 0;
     for (var i in attributes.found) {
@@ -86,6 +93,14 @@ $(document).ready(function(){
     $(":input[@name*=attributes]:not(:text)", $(this)).change(function(){
       checkStock(eachForm);
     });
+    /* TODO: Feature request - support qty field, would make sense if cart
+     * contents are checked in the server as well as just stock
+     */
+    /*
+    $(":input[@name=qty]", $(this)).keyup(function(){
+      checkStock(eachForm);
+    });
+    */
   });
 
   $("form[@id*=uc-catalog-buy-it-now-form]").each(function(index) {
