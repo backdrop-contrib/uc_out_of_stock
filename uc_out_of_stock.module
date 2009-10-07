@@ -250,6 +250,12 @@ function uc_out_of_stock_validate_form_addtocart($form, &$form_state) {
  * @param array $items
  */
 function uc_out_of_stock_validate_cart_items($items) {
+  // just in the rare case (http://drupal.org/node/496782)
+  // that $items is not an array, do nothing
+  if (!is_array($items)) {
+    return;
+  }
+
   $cart_items = array();
   // First group by model
   foreach ($items as $k => $item) {
