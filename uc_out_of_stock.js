@@ -1,6 +1,6 @@
 // $Id$
 
-$(document).ready(function(){
+Drupal.behaviors.uc_out_of_stock =  function() {
   // Your code here
   attrid = 'edit-attributes';
 
@@ -113,4 +113,4 @@ $(document).ready(function(){
 
     // This form has no possible attributes
   });
-});
+};
