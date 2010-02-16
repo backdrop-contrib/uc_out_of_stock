@@ -1,6 +1,6 @@
 // $Id$
 
-Drupal.behaviors.uc_out_of_stock =  function() {
+Drupal.behaviors.ucOutOfStock =  function() {
   // Your code here
   attrid = 'edit-attributes';
 
