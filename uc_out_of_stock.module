@@ -237,7 +237,7 @@ function uc_out_of_stock_validate_form_addtocart($form, &$form_state) {
 
     $error = uc_out_of_stock_validate_addtocart($nid, $attrs, $qty);
     if ($error !== FALSE) {
-      form_set_error('uc_out_of_stock', $error);
+      form_set_error('uc_out_of_stock', $error['msg']);
     }
   }
 }
@@ -249,7 +249,7 @@ function uc_out_of_stock_validate_form_addtocart($form, &$form_state) {
  *
  * @param array $items
  */
-function uc_out_of_stock_validate_cart_items($items) {
+function uc_out_of_stock_validate_cart_items($items, $page = 'cart') {
   // just in the rare case (http://drupal.org/node/496782)
   // that $items is not an array, do nothing
   if (!is_array($items)) {
@@ -257,6 +257,7 @@ function uc_out_of_stock_validate_cart_items($items) {
   }
 
   $cart_items = array();
+  $stored_cart_items = uc_cart_get_contents();
   // First group by model
   foreach ($items as $k => $item) {
     // Convert it to object just in case is an array (if coming from a form POST)
@@ -267,9 +268,30 @@ function uc_out_of_stock_validate_cart_items($items) {
       if (is_string($item->data)) {
         $item->data = unserialize($item->data);
       }
-      $cart_items[$item->data['model']]['item'] = $item;
-      $cart_items[$item->data['model']]['qty'] += $item->qty;
-      $cart_items[$item->data['model']]['key'] = $k;
+      // If the items comes from the submitted cart, it doesn't have the model
+      // set, so we try to get it from the stored cart items which is filled
+      // properly with the model.
+      // For that, we assume that the sorting is the same, and if not,
+      // we provide an alternative method which is probably not
+      // very good in terms of performance, but the sorting of both arrays
+      // should be the same
+      if (!isset($item->model)) {
+        $stored_item = $stored_cart_items[$k];
+        if ($item->nid == $stored_item->nid && $item->data == $stored_item->data) {
+          $model = $stored_item->model;
+        }
+        else {
+          foreach ($stored_cart_items as $stored_item) {
+            if ($item->nid == $stored_item->nid && $item->data == $stored_item->data) {
+              $model = $stored_item->model;
+            }
+          }
+        }
+        $item->model = $model;
+      }
+      $cart_items[$item->model]['item'] = $item;
+      $cart_items[$item->model]['qty'] += $item->qty;
+      $cart_items[$item->model]['key'] = $k;
     }
   }
 
@@ -279,8 +301,12 @@ function uc_out_of_stock_validate_cart_items($items) {
     $stockinfo = uc_out_of_stock_getstockinfo_from_model($model);
     if ($stockinfo) {
       if ($stockinfo['stock'] - $cart_item['qty'] < 0) {
-        $error = _uc_out_of_stock_get_error('not_enough', $item->nid, $item->data['attributes'], $stockinfo['stock'], $cart_item['qty']);
-        form_set_error("items][{$cart_item['key']}][qty", $error);
+        $qty = 0;
+        if ($page == 'checkout') {
+          $qty = $cart_item['qty'];
+        }
+        $error = _uc_out_of_stock_get_error('not_enough', $item->nid, $item->data['attributes'], $stockinfo['stock'], $qty);
+        form_set_error("items][{$cart_item['key']}][qty", $error['msg']);
       }
     }
   }
@@ -294,7 +320,7 @@ function uc_out_of_stock_validate_cart_items($items) {
  */
 function uc_out_of_stock_validate_form_checkout($form, &$form_state) {
   $items = uc_cart_get_contents();
-  uc_out_of_stock_validate_cart_items($items);
+  uc_out_of_stock_validate_cart_items($items, 'checkout');
 }
 
 /**
@@ -303,7 +329,7 @@ function uc_out_of_stock_validate_form_checkout($form, &$form_state) {
  */
 function uc_out_of_stock_validate_form_cart($form, &$form_state) {
   $items = $form_state['values']['items'];
-  uc_out_of_stock_validate_cart_items($items);
+  uc_out_of_stock_validate_cart_items($items, 'cart');
 }
 
 /**
@@ -323,7 +349,7 @@ function uc_out_of_stock_validate_form_cart($form, &$form_state) {
  * @param <type> $cart_item_id
  *   ID on the shopping cart
  */
-function _uc_out_of_stock_get_error($error, $nid, $attrs, $stock, $qty = 0) {
+function _uc_out_of_stock_get_error($type, $nid, $attrs, $stock, $qty = 0) {
   $product = node_load($nid);
 
   if (count($attrs)) {
@@ -335,21 +361,33 @@ function _uc_out_of_stock_get_error($error, $nid, $attrs, $stock, $qty = 0) {
     }
   }
 
-  if ($error == 'out_of_stock') {
+  $error['stock'] = $stock;
+  $error['qty_in_cart'] = $qty;
+  $error['type'] = $type;
+  $error['product'] = $product->title;
+  if (count($attrs)) {
+    $error['attributes'] = implode('/', $attr_names);
+    $error['options'] = implode('/', $option_names);
+  }
+
+  if ($type == 'out_of_stock') {
     if (count($attrs)) {
-      $error = t("We're sorry. The product @product (@options) is out of stock. Please consider trying this product with a different @attributes.", array('@product' => $product->title, '@attributes' => implode('/', $attr_names), '@options' => implode('/', $option_names)));
+      $error['msg'] = t("We're sorry. The product @product (@options) is out of stock. Please consider trying this product with a different @attributes.", array('@product' => $error['product'], '@attributes' => $error['attributes'], '@options' => $error['options']));
     }
     else {
-      $error = t("We're sorry. The product @product is out of stock.", array('@product' => $product->title));
+      $error['msg'] = t("We're sorry. The product @product is out of stock.", array('@product' => $error['product']));
     }
   }
 
-  if ($error == 'not_enough') {
+  if ($type == 'not_enough') {
     if (count($attrs)) {
-      $error = t("We're sorry. We have now only @qty of the product @product (@options) left in stock. Please review your <a href=\"@cart-url\">shopping cart</a>.", array('@qty' => format_plural($stock, '1 unit', '@count units'), '@product' => $product->title, '@options' => implode('/', $option_names), '@cart-url' => url('cart')));
+      $error['msg'] = t("We're sorry. We have now only @qty of the product @product (@options) left in stock.", array('@qty' => format_plural($error['stock'], '1 unit', '@count units'), '@product' => $error['product'], '@options' => $error['options']));
     }
     else {
-      $error = t("We're sorry. We have now only @qty of the product @product left in stock. Please review your <a href=\"@cart-url\">shopping cart</a>.", array('@qty' => format_plural($stock, '1 unit', '@count units'), '@product' => $product->title, '@cart-url' => url('cart')));
+      $error['msg'] = t("We're sorry. We have now only @qty of the product @product left in stock.", array('@qty' => format_plural($error['stock'], '1 unit', '@count units'), '@product' => $error['product']));
+    }
+    if ($error['qty_in_cart']) {
+      $error['msg'] .= ' '. t("You have currently @qty in your <a href=\"@cart-url\">shopping cart</a>.", array('@qty' => format_plural($error['qty_in_cart'], '1 unit', '@count units'), '@cart-url' => url('cart')));
     }
   }
 
