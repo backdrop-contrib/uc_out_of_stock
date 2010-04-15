@@ -13,7 +13,7 @@ Drupal.behaviors.ucOutOfStock =  function() {
     attributes.found = new Object();
     attributes.value = new Object();
 
-    $(":input[@name*=attributes]:not(:text)", form).each(function(index){
+    $(":input[name*=attributes]:not(:text)", form).each(function(index){
       id = $(this).attr('name').substring(11,$(this).attr('name').length-1);
       if ($(this).is(':radio')) {
         attributes.found['attr'+id] = 1;
@@ -34,7 +34,7 @@ Drupal.behaviors.ucOutOfStock =  function() {
 
     // find qty
     product['qty'] = 1;
-    qty = $(":input[@name=qty]", form).val()
+    qty = $(":input[name=qty]", form).val()
     if (qty) {
       product['qty'] = qty;
     }
@@ -82,7 +82,7 @@ Drupal.behaviors.ucOutOfStock =  function() {
     });
   }
 
-  $("form[@id*=uc-product-add-to-cart-form]").each(function(index) {
+  $("form[id*=uc-product-add-to-cart-form]").each(function(index) {
     var eachForm;
     $("input:submit.node-add-to-cart,input:submit.list-add-to-cart", $(this)).before('<div class="uc_out_of_stock_throbbing">&nbsp;&nbsp;&nbsp;&nbsp;</div> ');
     $("input:submit.node-add-to-cart,input:submit.list-add-to-cart", $(this)).after('<div class="uc_out_of_stock_html"></div');
@@ -90,20 +90,20 @@ Drupal.behaviors.ucOutOfStock =  function() {
     eachForm = $(this);
     checkStock(eachForm);
 
-    $(":input[@name*=attributes]:not(:text)", $(this)).change(function(){
+    $(":input[name*=attributes]:not(:text)", $(this)).change(function(){
       checkStock(eachForm);
     });
     /* TODO: Feature request - support qty field, would make sense if cart
      * contents are checked in the server as well as just stock
      */
     /*
-    $(":input[@name=qty]", $(this)).keyup(function(){
+    $(":input[name=qty]", $(this)).keyup(function(){
       checkStock(eachForm);
     });
     */
   });
 
-  $("form[@id*=uc-catalog-buy-it-now-form]").each(function(index) {
+  $("form[id*=uc-catalog-buy-it-now-form]").each(function(index) {
     var eachForm;
     $("input:submit.node-add-to-cart,input:submit.list-add-to-cart", $(this)).before('<div class="uc_out_of_stock_throbbing">&nbsp;&nbsp;&nbsp;&nbsp;</div> ');
     $("input:submit.node-add-to-cart,input:submit.list-add-to-cart", $(this)).after('<div class="uc_out_of_stock_html"></div');
