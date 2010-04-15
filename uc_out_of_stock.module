@@ -163,7 +163,7 @@ function uc_out_of_stock_query() {
 
 function uc_out_of_stock_settings() {
   $text = check_markup(variable_get('uc_out_of_stock_text', UC_OUT_OF_STOCK_DEFAULT_HTML), variable_get('uc_out_of_stock_format', FILTER_FORMAT_DEFAULT), FALSE);
-  $description = '<div class="description">This is the value below rendered as you would expect to see it</div>';
+  $description = t('<div class="description">This is the value below rendered as you would expect to see it</div>');
   $text = '<div style="border: 1px solid lightgrey; padding: 10px;">' . $text . '</div>' . $description;
 
   $form['uc_out_of_stock_demo'] = array(
