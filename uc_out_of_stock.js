@@ -1,4 +1,3 @@
-// $Id$
 
 Drupal.behaviors.ucOutOfStock =  function() {
   // Your code here

@@ -1,5 +1,4 @@
 <?php
-// $Id$
 
 define ('UC_OUT_OF_STOCK_DEFAULT_HTML', t('<span style="color: red;">Out of stock</span>'));
 
