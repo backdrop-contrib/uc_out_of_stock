@@ -262,7 +262,9 @@ function uc_out_of_stock_validate_cart_items($items, $page = 'cart') {
     // Convert it to object just in case is an array (if coming from a form POST)
     $item = (object) $item;
     // Validate unless the item was being removed
-    if (!$item->remove) {
+    // Starting from Ubercart 2.6, remove are buttons so th
+    // I believe this clause should cope with both approaches.
+    if (!is_numeric($item->remove) || !$item->remove) {
       // Unserialize data if string
       if (is_string($item->data)) {
         $item->data = unserialize($item->data);
