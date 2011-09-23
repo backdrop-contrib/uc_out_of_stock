@@ -1,4 +1,3 @@
-
 Drupal.behaviors.ucOutOfStock =  function() {
   // Your code here
   attrid = 'edit-attributes';
@@ -6,7 +5,6 @@ Drupal.behaviors.ucOutOfStock =  function() {
   function checkStock(form) {
     var product = new Object();
     var attributes = new Object();
-    var formid_data = new Array();
 
     product.nid = form.attr('id').match(/(?:uc-product-add-to-cart-form-|catalog-buy-it-now-form-)([0-9]+)/)[1];
     attributes.found = new Object();
@@ -81,7 +79,7 @@ Drupal.behaviors.ucOutOfStock =  function() {
     });
   }
 
-  $("form[id*=uc-product-add-to-cart-form]").each(function(index) {
+  $("form[id*=uc-product-add-to-cart-form]").each(function() {
     var eachForm;
     $("input:submit.node-add-to-cart,input:submit.list-add-to-cart", $(this)).before('<div class="uc_out_of_stock_throbbing">&nbsp;&nbsp;&nbsp;&nbsp;</div> ');
     $("input:submit.node-add-to-cart,input:submit.list-add-to-cart", $(this)).after('<div class="uc_out_of_stock_html"></div');
@@ -113,3 +111,4 @@ Drupal.behaviors.ucOutOfStock =  function() {
     // This form has no possible attributes
   });
 };
+
