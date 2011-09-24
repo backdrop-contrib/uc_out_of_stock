@@ -1,6 +1,6 @@
 <?php
 
-define ('UC_OUT_OF_STOCK_DEFAULT_HTML', t('<span style="color: red;">Out of stock</span>'));
+define ('UC_OUT_OF_STOCK_DEFAULT_HTML', '<span style="color: red;">Out of stock</span>');
 
 /****************************
  * Drupal hooks
