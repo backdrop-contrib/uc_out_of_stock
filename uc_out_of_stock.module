@@ -31,6 +31,7 @@ function uc_out_of_stock_form_alter(&$form, $form_state, $form_id) {
         if (empty($settings_js)) {
           $settings_js['uc_out_of_stock']['path'] = url('uc_out_of_stock/query');
           $settings_js['uc_out_of_stock']['throbber'] = variable_get('uc_out_of_stock_throbber', TRUE);
+          $settings_js['uc_out_of_stock']['instock'] = variable_get('uc_out_of_stock_instock', TRUE);
           $settings_js['uc_out_of_stock']['msg'] = check_markup(variable_get('uc_out_of_stock_text', UC_OUT_OF_STOCK_DEFAULT_HTML), variable_get('uc_out_of_stock_format', FILTER_FORMAT_DEFAULT), FALSE);
           drupal_add_js($settings_js, 'setting');
         }
@@ -201,6 +202,13 @@ function uc_out_of_stock_settings() {
     '#title' => t('Display throbber'),
     '#default_value' => variable_get('uc_out_of_stock_throbber', TRUE),
     '#description' => t('Display a throbber (animated wheel) next to add to cart button. This can be themed/styled and removed via CSS as well, but you can just disable with this setting.'),
+  );
+
+  $form['uc_out_of_stock_instock'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Display in stock information'),
+    '#default_value' => variable_get('uc_out_of_stock_instock', TRUE),
+    '#description' => t('Display how many items are in stock above the add to cart button or below the qty field if it is present. It can be themed and translated as normal. Please see the uc_out_of_stock.js file for hints. If product has attributes, it may be impossible to know the stock until the attribute is selected, so it will simply display a default "In stock" message.'),
   );
 
   $text = check_markup(variable_get('uc_out_of_stock_text', UC_OUT_OF_STOCK_DEFAULT_HTML), variable_get('uc_out_of_stock_format', FILTER_FORMAT_DEFAULT), FALSE);

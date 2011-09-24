@@ -91,6 +91,10 @@ Drupal.behaviors.ucOutOfStock =  function() {
             $("#" + $(":input[name=qty]", form).attr('id') + "-wrapper", form).hide();
             // Show out of stock message
             $(".uc_out_of_stock_html", form).html(Drupal.settings.uc_out_of_stock.msg);
+
+            if (Drupal.settings.uc_out_of_stock.instock) {
+              $(".uc-out-of-stock-instock", form).hide();
+            }
           }
           else {
             // Put back the normal HTML of the add to cart form
@@ -101,6 +105,10 @@ Drupal.behaviors.ucOutOfStock =  function() {
             $("#" + $(":input[name=qty]", form).attr('id') + "-wrapper", form).show();
             // show add to cart button
             $("input:submit.node-add-to-cart,input:submit.list-add-to-cart", form).show();
+            if (Drupal.settings.uc_out_of_stock.instock) {
+              $(".uc-out-of-stock-instock", form).html(Drupal.theme('ucOutOfStockInStock', stock_level));
+              $(".uc-out-of-stock-instock", form).show();
+            }
           }
 
           if (Drupal.settings.uc_out_of_stock.throbber) {
@@ -119,6 +127,18 @@ Drupal.behaviors.ucOutOfStock =  function() {
     if (Drupal.settings.uc_out_of_stock.throbber) {
       $("input:submit.node-add-to-cart,input:submit.list-add-to-cart", $(this)).before('<div class="uc_out_of_stock_throbbing">&nbsp;&nbsp;&nbsp;&nbsp;</div>');
     }
+
+    if (Drupal.settings.uc_out_of_stock.instock) {
+      if ($(":input[name=qty]", $(this)).length) {
+        $(":input[name=qty]", $(this)).after('<div class="uc-out-of-stock-instock"></div>');
+        $("input:submit.node-add-to-cart,input:submit.list-add-to-cart", $(this)).before('<div class="uc-out-of-stock-instock"></div>');
+      }
+      else {
+        $("input:submit.node-add-to-cart,input:submit.list-add-to-cart", $(this)).before('<div class="uc-out-of-stock-instock"></div>');
+      }
+      $(".uc-out-of-stock-instock", $(this)).html(Drupal.theme('ucOutOfStockInStock'));
+    }
+
     $("input:submit.node-add-to-cart,input:submit.list-add-to-cart", $(this)).after('<div class="uc_out_of_stock_html"></div>');
     var form = $(this);
 
@@ -136,5 +156,14 @@ Drupal.behaviors.ucOutOfStock =  function() {
   });
 
   checkStock(forms);
+};
+
+Drupal.theme.prototype.ucOutOfStockInStock = function (stock) {
+  if (stock == undefined) {
+    return Drupal.t('In stock');
+  }
+  else {
+    return Drupal.t('@stock in stock', {'@stock' : stock});
+  }
 };
 
