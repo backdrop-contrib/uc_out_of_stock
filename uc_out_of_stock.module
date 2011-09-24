@@ -416,6 +416,9 @@ function _uc_out_of_stock_get_error($type, $nid, $attrs, $stock, $qty = 0) {
     }
   }
 
+  // Invoke hook_uc_out_of_stock_error_alter() to allow all modules to alter the resulting error message.
+  drupal_alter('uc_out_of_stock_error', $error, $product);
+
   return $error;
 }
 
