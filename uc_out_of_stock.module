@@ -10,11 +10,17 @@ define ('UC_OUT_OF_STOCK_DEFAULT_HTML', t('<span style="color: red;">Out of stoc
  * Implementation of hook_form_alter()
  */
 function uc_out_of_stock_form_alter(&$form, $form_state, $form_id) {
+  static $settings_js = array();
+
   $forms = array('uc_product_add_to_cart_form', 'uc_catalog_buy_it_now_form');
   foreach ($forms as $id) {
     if ( substr($form_id, 0, strlen($id)) == $id ) {
       drupal_add_js(drupal_get_path('module', 'uc_out_of_stock') . '/uc_out_of_stock.js');
       drupal_add_css(drupal_get_path('module', 'uc_out_of_stock') . '/uc_out_of_stock.css');
+      if (empty($settings_js)) {
+        $settings_js['uc_out_of_stock']['msg'] = check_markup(variable_get('uc_out_of_stock_text', UC_OUT_OF_STOCK_DEFAULT_HTML), variable_get('uc_out_of_stock_format', FILTER_FORMAT_DEFAULT), FALSE);
+        drupal_add_js($settings_js, 'setting');
+      }
       $form['#validate'][] = 'uc_out_of_stock_validate_form_addtocart';
     }
   }
@@ -136,28 +142,41 @@ function uc_out_of_stock_getstockinfo($nid, $attrs) {
 }
 
 function uc_out_of_stock_query() {
-  $response = array();
-  $attrs = array();
-
-  $nid = $_POST['nid'];
-  foreach ( $_POST as $key => $value ) {
-    if ( substr($key, 0, 4) == 'attr' ) {
-      $attrs[substr($key, 4)] = $value;
-    }
+  if (count($_POST['form_ids']) != count($_POST['node_ids'])) {
+    print 'Invalid data posted.';
   }
 
-  $stockinfo = uc_out_of_stock_getstockinfo($nid, $attrs);
-  if ($stockinfo) {
-    $response['stock'] = $stockinfo['stock'];
-    if ( $response['stock'] <= 0 ) {
-      $response['html'] = check_markup(variable_get('uc_out_of_stock_text', UC_OUT_OF_STOCK_DEFAULT_HTML), variable_get('uc_out_of_stock_format', FILTER_FORMAT_DEFAULT), FALSE);
+  $return = array_combine($_POST['form_ids'], array_fill(0, count($_POST['form_ids']), NULL));
+  // If no attributes given we can do one query to fetch everything
+  if (empty($_POST['attr_ids'])) {
+    $result = db_query('SELECT ups.stock, up.nid
+                        FROM {uc_products} up
+                        LEFT JOIN {uc_product_stock} ups ON ups.sku = up.model
+                        WHERE up.nid IN(' . db_placeholders($_POST['node_ids'], 'int') . ')
+                        AND ups.active = 1', $_POST['node_ids']);
+    while ($product = db_fetch_object($result)) {
+      $key = array_search($product->nid, $_POST['node_ids']);
+      $return[$_POST['form_ids'][$key]] = $product->stock;
+    }
+  }
+  else {
+    $attribs = array();
+    foreach ($_POST['attr_ids'] as $value) {
+      list($nid, $attr_id, $attr_val) = explode(':', $value);
+      $attribs[$nid][$attr_id] = $attr_val;
+    }
+
+    foreach ($_POST['node_ids'] as $key => $nid) {
+      $stockinfo = uc_out_of_stock_getstockinfo($nid, (array) $attribs[$nid]);
+      if ($stockinfo) {
+        $return[$_POST['form_ids'][$key]] = $stockinfo['stock'];
+      }
     }
   }
 
   // if there is some response, print it
-  if (count($response)){
-    print implode('|', $response);
-  }
+  print drupal_json($return);
+  exit;
 }
 
 function uc_out_of_stock_settings() {
