@@ -7,6 +7,14 @@ define ('UC_OUT_OF_STOCK_DEFAULT_HTML', '<span style="color: red;">Out of stock<
  ***************************/
 
 /**
+ * Implementation of hook_init()
+ */
+function uc_out_of_stock_init(){
+  global $conf;
+  $conf['i18n_variables'][] = 'uc_out_of_stock_text';
+}
+
+/**
  * Implementation of hook_form_alter()
  */
 function uc_out_of_stock_form_alter(&$form, $form_state, $form_id) {
@@ -21,6 +29,7 @@ function uc_out_of_stock_form_alter(&$form, $form_state, $form_id) {
         drupal_add_js(drupal_get_path('module', 'uc_out_of_stock') . '/uc_out_of_stock.js');
         drupal_add_css(drupal_get_path('module', 'uc_out_of_stock') . '/uc_out_of_stock.css');
         if (empty($settings_js)) {
+          $settings_js['uc_out_of_stock']['path'] = url('uc_out_of_stock/query');
           $settings_js['uc_out_of_stock']['throbber'] = variable_get('uc_out_of_stock_throbber', TRUE);
           $settings_js['uc_out_of_stock']['msg'] = check_markup(variable_get('uc_out_of_stock_text', UC_OUT_OF_STOCK_DEFAULT_HTML), variable_get('uc_out_of_stock_format', FILTER_FORMAT_DEFAULT), FALSE);
           drupal_add_js($settings_js, 'setting');
@@ -193,7 +202,7 @@ function uc_out_of_stock_settings() {
     '#default_value' => variable_get('uc_out_of_stock_throbber', TRUE),
     '#description' => t('Display a throbber (animated wheel) next to add to cart button. This can be themed/styled and removed via CSS as well, but you can just disable with this setting.'),
   );
-  
+
   $text = check_markup(variable_get('uc_out_of_stock_text', UC_OUT_OF_STOCK_DEFAULT_HTML), variable_get('uc_out_of_stock_format', FILTER_FORMAT_DEFAULT), FALSE);
   $description = t('<div class="description">This is the value below rendered as you would expect to see it</div>');
   $text = '<div style="border: 1px solid lightgrey; padding: 10px;">' . $text . '</div>' . $description;

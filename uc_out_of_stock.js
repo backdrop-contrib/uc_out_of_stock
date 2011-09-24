@@ -76,7 +76,7 @@ Drupal.behaviors.ucOutOfStock =  function() {
     var post = { 'form_ids[]': form_ids, 'node_ids[]': node_ids, 'attr_ids[]': attr_ids }
     $.ajax({
       type: 'post',
-      url : Drupal.settings.basePath+'uc_out_of_stock/query',
+      url : Drupal.settings.uc_out_of_stock.path,
       data: post,
       success : function (data, textStatus) {
         $.each(data, function(form_id, stock_level) {
