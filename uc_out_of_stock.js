@@ -96,7 +96,8 @@ Drupal.behaviors.ucOutOfStock =  function() {
   }
 
   var forms = new Array();
-  $("form[id*=uc-product-add-to-cart-form], form[id*=uc-catalog-buy-it-now-form]").each(function() {
+  $("form[id*=uc-product-add-to-cart-form], form[id*=uc-catalog-buy-it-now-form]").not('.uc-out-stock-processed').each(function() {
+    $(this).addClass('uc-out-stock-processed');
     forms.push($(this));
     $("input:submit.node-add-to-cart,input:submit.list-add-to-cart", $(this)).before('<div class="uc_out_of_stock_throbbing">&nbsp;&nbsp;&nbsp;&nbsp;</div>');
     $("input:submit.node-add-to-cart,input:submit.list-add-to-cart", $(this)).after('<div class="uc_out_of_stock_html"></div>');
