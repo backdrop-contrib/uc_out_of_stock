@@ -15,12 +15,17 @@ function uc_out_of_stock_form_alter(&$form, $form_state, $form_id) {
   $forms = array('uc_product_add_to_cart_form', 'uc_catalog_buy_it_now_form');
   foreach ($forms as $id) {
     if ( substr($form_id, 0, strlen($id)) == $id ) {
-      drupal_add_js(drupal_get_path('module', 'uc_out_of_stock') . '/uc_out_of_stock.js');
-      drupal_add_css(drupal_get_path('module', 'uc_out_of_stock') . '/uc_out_of_stock.css');
-      if (empty($settings_js)) {
-        $settings_js['uc_out_of_stock']['msg'] = check_markup(variable_get('uc_out_of_stock_text', UC_OUT_OF_STOCK_DEFAULT_HTML), variable_get('uc_out_of_stock_format', FILTER_FORMAT_DEFAULT), FALSE);
-        drupal_add_js($settings_js, 'setting');
+
+      // Only add Javascript if it was enabled
+      if (!variable_get('uc_out_of_stock_disable_js', false)) {
+        drupal_add_js(drupal_get_path('module', 'uc_out_of_stock') . '/uc_out_of_stock.js');
+        drupal_add_css(drupal_get_path('module', 'uc_out_of_stock') . '/uc_out_of_stock.css');
+        if (empty($settings_js)) {
+          $settings_js['uc_out_of_stock']['msg'] = check_markup(variable_get('uc_out_of_stock_text', UC_OUT_OF_STOCK_DEFAULT_HTML), variable_get('uc_out_of_stock_format', FILTER_FORMAT_DEFAULT), FALSE);
+          drupal_add_js($settings_js, 'setting');
+        }
       }
+
       $form['#validate'][] = 'uc_out_of_stock_validate_form_addtocart';
     }
   }
@@ -197,6 +202,20 @@ function uc_out_of_stock_settings() {
   );
 
   $form['uc_out_of_stock_format'] = filter_form(variable_get('uc_out_of_stock_format', FILTER_FORMAT_DEFAULT), NULL, array('uc_out_of_stock_format'));
+
+  $form['advanced'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Advanced settings'),
+    '#collapsible' => TRUE,
+    '#collapsed' => TRUE,
+  );
+  $form['advanced']['uc_out_of_stock_disable_js'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Disable javascript'),
+    '#default_value' => variable_get('uc_out_of_stock_disable_js', false),
+    '#description' => t('If you disable javascript you will lose real-time checking of stock, support for checking for stock on attribute change and all of the HTML replacement confgured above. Use it with careful. This can be useful if you think this module is in conflict with some other third-party Ubercart module and you want to keep the server side validation of this module.'),
+  );
+
 
   return system_settings_form($form);
 }
