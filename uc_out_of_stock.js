@@ -131,7 +131,6 @@ Drupal.behaviors.ucOutOfStock =  function() {
     if (Drupal.settings.uc_out_of_stock.instock) {
       if ($(":input[name=qty]", $(this)).length) {
         $(":input[name=qty]", $(this)).after('<div class="uc-out-of-stock-instock"></div>');
-        $("input:submit.node-add-to-cart,input:submit.list-add-to-cart", $(this)).before('<div class="uc-out-of-stock-instock"></div>');
       }
       else {
         $("input:submit.node-add-to-cart,input:submit.list-add-to-cart", $(this)).before('<div class="uc-out-of-stock-instock"></div>');
