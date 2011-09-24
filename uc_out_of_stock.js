@@ -80,12 +80,24 @@ Drupal.behaviors.ucOutOfStock =  function() {
         $.each(data, function(form_id, stock_level) {
           var form = $('#' + form_id);
           if (stock_level != null && parseInt(stock_level) <= 0) {
+            // hide add to cart button
             $("input:submit.node-add-to-cart,input:submit.list-add-to-cart", form).hide();
+            // hide qty label, field and wrapper if present and if it follows
+            // default theme output
+            $("label[for=" + $(":input[name=qty]", form).attr('id') + "]", form).hide();
+            $(":input[name=qty]", form).hide();
+            $("#" + $(":input[name=qty]", form).attr('id') + "-wrapper", form).hide();
+            // Show out of stock message
             $(".uc_out_of_stock_html", form).html(Drupal.settings.uc_out_of_stock.msg);
           }
           else {
             // Put back the normal HTML of the add to cart form
             $(".uc_out_of_stock_html", form).html('');
+            // show qty elements
+            $("label[for=" + $(":input[name=qty]", form).attr('id') + "]", form).show();
+            $(":input[name=qty]", form).show();
+            $("#" + $(":input[name=qty]", form).attr('id') + "-wrapper", form).show();
+            // show add to cart button
             $("input:submit.node-add-to-cart,input:submit.list-add-to-cart", form).show();
           }
           $(".uc_out_of_stock_throbbing", form).removeClass('uc_oos_throbbing');
