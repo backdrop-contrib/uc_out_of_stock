@@ -1,4 +1,9 @@
 Drupal.behaviors.ucOutOfStock =  function() {
+
+  if(typeof console === "undefined") {
+    console = {log: function() {}};
+  };
+
   // Your code here
   attrid = 'edit-attributes';
 
@@ -116,6 +121,12 @@ Drupal.behaviors.ucOutOfStock =  function() {
           }
         });
       },
+      error : function (jqXHR, textStatus, errorThrown) {
+        console.log('uc_out_of_stock: ' + textStatus + ': ' + jqXHR.responseText);
+        if (Drupal.settings.uc_out_of_stock.throbber) {
+          $(".uc_out_of_stock_throbbing").removeClass('uc_oos_throbbing');
+        }
+      },
       dataType: 'json'
     });
   }
@@ -135,7 +146,6 @@ Drupal.behaviors.ucOutOfStock =  function() {
       else {
         $("input:submit.node-add-to-cart,input:submit.list-add-to-cart", $(this)).before('<div class="uc-out-of-stock-instock"></div>');
       }
-      $(".uc-out-of-stock-instock", $(this)).html(Drupal.theme('ucOutOfStockInStock'));
     }
 
     $("input:submit.node-add-to-cart,input:submit.list-add-to-cart", $(this)).after('<div class="uc_out_of_stock_html"></div>');
