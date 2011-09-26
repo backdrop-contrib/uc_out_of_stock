@@ -7,9 +7,9 @@ define ('UC_OUT_OF_STOCK_DEFAULT_HTML', '<span style="color: red;">Out of stock<
  ***************************/
 
 /**
- * Implementation of hook_init()
+ * Implementation of hook_boot()
  */
-function uc_out_of_stock_init(){
+function uc_out_of_stock_boot(){
   global $conf;
   $conf['i18n_variables'][] = 'uc_out_of_stock_text';
 }
