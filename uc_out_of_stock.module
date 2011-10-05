@@ -332,8 +332,10 @@ function uc_out_of_stock_validate_cart_items($items, $page = 'cart') {
     // Convert it to object just in case is an array (if coming from a form POST)
     $item = (object) $item;
     // Validate unless the item was being removed
-    // Starting from Ubercart 2.6, remove are buttons so th
-    // I believe this clause should cope with both approaches.
+    // Starting from Ubercart 2.6, remove are buttons so a different
+    // approach not to validate is used in
+    // uc_out_of_stock_validate_form_addtocart().
+    // Leaving support for checkboxes
     if (!is_numeric($item->remove) || !$item->remove) {
       // Unserialize data if string
       if (is_string($item->data)) {
@@ -369,20 +371,24 @@ function uc_out_of_stock_validate_cart_items($items, $page = 'cart') {
   // Now for each model, check the stock
   foreach ($cart_items as $model => $cart_item) {
     $item = $cart_item['item'];
-    $stockinfo = uc_out_of_stock_getstockinfo_from_model($model);
-    if ($stockinfo) {
-      if ($stockinfo['stock'] - $cart_item['qty'] < 0) {
-        $qty = 0;
-        if ($page == 'checkout') {
-          $qty = $cart_item['qty'];
+    // Only validates if there are items on the cart, otherwise it's likely
+    // it's being tried to be removed by setting the qty to 0.
+    if ($cart_item['qty'] > 0) {
+      $stockinfo = uc_out_of_stock_getstockinfo_from_model($model);
+      if ($stockinfo) {
+        if ($stockinfo['stock'] - $cart_item['qty'] < 0) {
+          $qty = 0;
+          if ($page == 'checkout') {
+            $qty = $cart_item['qty'];
+          }
+          if ($stockinfo['stock'] <= 0) {
+            $error = _uc_out_of_stock_get_error('out_of_stock', $item->nid, $item->data['attributes'], $stockinfo['stock']);
+          }
+          else {
+            $error = _uc_out_of_stock_get_error('not_enough', $item->nid, $item->data['attributes'], $stockinfo['stock'], $qty);
+          }
+          form_set_error("items][{$cart_item['key']}][qty", $error['msg']);
         }
-        if ($stockinfo['stock'] <= 0) {
-          $error = _uc_out_of_stock_get_error('out_of_stock', $item->nid, $item->data['attributes'], $stockinfo['stock']);
-        }
-        else {
-          $error = _uc_out_of_stock_get_error('not_enough', $item->nid, $item->data['attributes'], $stockinfo['stock'], $qty);
-        }
-        form_set_error("items][{$cart_item['key']}][qty", $error['msg']);
       }
     }
   }
@@ -405,7 +411,9 @@ function uc_out_of_stock_validate_form_checkout($form, &$form_state) {
  */
 function uc_out_of_stock_validate_form_cart($form, &$form_state) {
   $items = $form_state['values']['items'];
-  uc_out_of_stock_validate_cart_items($items, 'cart');
+  if (substr($form_state['clicked_button']['#name'], 0, 7) != 'remove-') {
+    uc_out_of_stock_validate_cart_items($items, 'cart');
+  }
 }
 
 /**
