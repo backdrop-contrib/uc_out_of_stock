@@ -301,6 +301,13 @@ function uc_out_of_stock_validate_form_addtocart($form, &$form_state) {
   // i.e. If some other form_alter added another button, do nothing (uc_wishlist)
   if ($class == 'node-add-to-cart' || $class == 'list-add-to-cart') {
     $attrs = $form_state['values']['attributes'];
+    foreach ((array)$attrs as $aid => $oids) {
+      $attribute = uc_attribute_load($aid);
+      // 1 is select and 2 is radio, the only supported attributes that may have stock adjustments
+      if ($attribute->display != 1 && $attribute->display != 2) {
+        unset($attrs[$aid]);
+      }
+    }
     $nid = $form_state['values']['nid'];
     $qty = $form_state['values']['qty'] ? $form_state['values']['qty'] : 1;
 

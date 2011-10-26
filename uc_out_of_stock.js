@@ -20,8 +20,9 @@ Drupal.behaviors.ucOutOfStock =  function() {
       attributes.found = new Object();
       attributes.value = new Object();
 
-      $(":input[@name*=attributes]:not(:text)", form).each(function(index){
-        id = $(this).attr('name').substring(11,$(this).attr('name').length-1);
+      $("[name*=attributes]", form).filter(':input:not(:text):not(:checkbox)').each(function(index){
+        // We are assuming the value has to be there, seems to be working for radios and checkboxes
+        id = $(this).attr('name').match(/attributes\[([0-9]*)\]/)[1];
         if ($(this).is(':radio')) {
           attributes.found['attr'+id] = 1;
           if ($(this).is(':checked')) {
@@ -31,7 +32,7 @@ Drupal.behaviors.ucOutOfStock =  function() {
             }
           }
         }
-        else {
+        else if ($(this).is('select')) {
           attributes.found['attr'+id] = 1;
           if ($(this).val()) {
             attributes.value['attr'+id] = 1;
@@ -59,12 +60,6 @@ Drupal.behaviors.ucOutOfStock =  function() {
           if (i!='length') {
           attributes.value.length++;
         }
-      }
-      if (attributes.found.length != attributes.value.length) {
-        // Put back the normal HTML of the add to cart form
-        $(".uc_out_of_stock_html", form).html('');
-        $("input:submit.node-add-to-cart,input:submit.list-add-to-cart", form).show();
-        return;
       }
 
       if (Drupal.settings.uc_out_of_stock.throbber) {
@@ -151,7 +146,7 @@ Drupal.behaviors.ucOutOfStock =  function() {
     $("input:submit.node-add-to-cart,input:submit.list-add-to-cart", $(this)).after('<div class="uc_out_of_stock_html"></div>');
     var form = $(this);
 
-    $(":input[name*=attributes]:not(:text)", $(this)).change(function(){
+    $("[name*=attributes]", $(this)).filter(':input:not(:text):not(:checkbox)').change(function(){
       checkStock([form]);
     });
     /* TODO: Feature request - support qty field, would make sense if cart
