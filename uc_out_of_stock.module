@@ -245,7 +245,7 @@ function uc_out_of_stock_settings() {
     '#type' => 'checkbox',
     '#title' => t('Disable javascript'),
     '#default_value' => variable_get('uc_out_of_stock_disable_js', FALSE),
-    '#description' => t('If you disable javascript you will lose real-time checking of stock, support for checking for stock on attribute change and all of the HTML replacement confgured above. Use it with careful. This can be useful if you think this module is in conflict with some other third-party Ubercart module and you want to keep the server side validation of this module.'),
+    '#description' => t('If you disable javascript you will lose real-time checking of stock, support for checking for stock on attribute change and all of the HTML replacement confgured above. Use it with caution. This can be useful if you think this module is in conflict with some other third-party Ubercart module and you want to keep the server side validation of this module.'),
   );
 
 
