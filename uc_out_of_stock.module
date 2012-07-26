@@ -8,14 +8,6 @@
  */
 
 /**
- * Implements of hook_boot()
- */
-function uc_out_of_stock_boot(){
-  global $conf;
-  $conf['i18n_variables'][] = 'uc_out_of_stock_text';
-}
-
-/**
  * Implements of hook_form_alter()
  */
 function uc_out_of_stock_form_alter(&$form, &$form_state, $form_id) {
@@ -60,7 +52,7 @@ function uc_out_of_stock_menu() {
   $items = array();
 
   $items['admin/store/settings/uc_out_of_stock'] = array(
-    'title' => 'Out of Stock Settings',
+    'title' => 'Out of Stock Notification',
     'access arguments' => array('administer store'),
     'description' => 'Configure out of stock settings.',
     'page callback' => 'drupal_get_form',
@@ -482,3 +474,4 @@ function _uc_out_of_stock_get_error($type, $nid, $attrs, $stock, $qty = 0) {
 
   return $error;
 }
+
