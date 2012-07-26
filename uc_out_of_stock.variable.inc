@@ -19,8 +19,22 @@ function uc_out_of_stock_variable_info($options) {
     'title' => t('Out of stock replacement HTML'),
     'type' => 'text_format',
     'description' => t('The HTML that will replace the Add To Cart button if no stock is available.'),
+    'group' => 'uc_out_of_stock',
   );
 
   return $variable;
+}
+
+/**
+ * Implements hook_variable_group_info().
+ */
+function uc_out_of_stock_variable_group_info() {
+  $groups['uc_out_of_stock'] = array(
+    'title' => t('Out of stock notification settings'),
+    'description' => t('Site information and maintenance mode'),
+    //'access' => 'administer store',
+    'path' => array('admin/store/settings/uc_out_of_stock'),
+  );
+  return $groups;
 }
 
