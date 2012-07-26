@@ -1,13 +1,14 @@
 <?php
 
-define ('UC_OUT_OF_STOCK_DEFAULT_HTML', '<span style="color: red;">Out of stock</span>');
-
-/****************************
- * Drupal hooks
- ***************************/
+/**
+ * @file
+ * The Out of stock notification module file
+ *
+ * It provides both client side and server side stock validation.
+ */
 
 /**
- * Implementation of hook_boot()
+ * Implements of hook_boot()
  */
 function uc_out_of_stock_boot(){
   global $conf;
@@ -15,14 +16,14 @@ function uc_out_of_stock_boot(){
 }
 
 /**
- * Implementation of hook_form_alter()
+ * Implements of hook_form_alter()
  */
-function uc_out_of_stock_form_alter(&$form, $form_state, $form_id) {
+function uc_out_of_stock_form_alter(&$form, &$form_state, $form_id) {
   static $settings_js = array();
 
   $forms = array('uc_product_add_to_cart_form', 'uc_catalog_buy_it_now_form');
   foreach ($forms as $id) {
-    if ( substr($form_id, 0, strlen($id)) == $id ) {
+    if ( drupal_substr($form_id, 0, drupal_strlen($id)) == $id ) {
 
       // Only add Javascript if it was enabled
       if (!variable_get('uc_out_of_stock_disable_js', FALSE)) {
@@ -32,7 +33,8 @@ function uc_out_of_stock_form_alter(&$form, $form_state, $form_id) {
           $settings_js['uc_out_of_stock']['path'] = url('uc_out_of_stock/query');
           $settings_js['uc_out_of_stock']['throbber'] = variable_get('uc_out_of_stock_throbber', TRUE);
           $settings_js['uc_out_of_stock']['instock'] = variable_get('uc_out_of_stock_instock', TRUE);
-          $settings_js['uc_out_of_stock']['msg'] = check_markup(variable_get('uc_out_of_stock_text', UC_OUT_OF_STOCK_DEFAULT_HTML), variable_get('uc_out_of_stock_format', FILTER_FORMAT_DEFAULT), FALSE);
+          $uc_out_of_stock_text = variable_get('uc_out_of_stock_text', array('value' => '<span style="color: red;">Out of stock</span>', 'format' => NULL));
+          $settings_js['uc_out_of_stock']['msg'] = check_markup($uc_out_of_stock_text['value'], $uc_out_of_stock_text['format']);
           drupal_add_js($settings_js, 'setting');
         }
       }
@@ -89,7 +91,7 @@ function uc_out_of_stock_menu() {
  *   Return an array of the stock information or null if NONE
  */
 function uc_out_of_stock_getstockinfo_from_model($model) {
-  $stock = db_result(db_query("SELECT ups.stock FROM {uc_product_stock} ups WHERE ups.active = 1 AND ups.sku = '%s'", $model));
+  $stock = db_query("SELECT ups.stock FROM {uc_product_stock} ups WHERE ups.active = 1 AND ups.sku = :sku", array(':sku' => $model))->fetchField();
   if (is_numeric($stock)) {
     $stockinfo['stock'] = $stock;
     $stockinfo['model'] = $model;
@@ -116,11 +118,11 @@ function uc_out_of_stock_getstockinfo($nid, $attrs) {
   if (module_exists('uc_attribute')) {
     // if attributes module exists, and product has attributes first search for attributes
     $post_attrs = count($attrs);
-    $sql = "SELECT %s FROM {uc_product_adjustments} upa LEFT JOIN {uc_product_stock} ups ON ups.sku = upa.model WHERE upa.nid = %d";
-    $db_attrs = db_result(db_query($sql, 'COUNT(*)', $nid));
+    $sql = "FROM {uc_product_adjustments} upa LEFT JOIN {uc_product_stock} ups ON ups.sku = upa.model WHERE upa.nid = :nid";
+    $db_attrs = db_query('SELECT COUNT(*) ' . $sql, array(':nid' => $nid))->fetchField();
     if ($post_attrs && $db_attrs > 0) {
-      $result = db_query($sql, '*', $nid);
-      while ($row = db_fetch_object($result)) {
+      $result = db_query('SELECT * ' . $sql, array(':nid' => $nid));
+      foreach ($result as $row) {
         $combination = unserialize($row->combination);
         // Apparently, on D6, one entry of the stock table has always the main SKU regardless the adjustments settings
         // Therefor, if the join gives a null record for the stock table, the main sku will be queried as well
@@ -147,8 +149,8 @@ function uc_out_of_stock_getstockinfo($nid, $attrs) {
 
   if ($query_main_sku) {
     // seach for main product
-    $result = db_query("SELECT * FROM {uc_products} up LEFT JOIN {uc_product_stock} ups ON ups.sku = up.model WHERE up.nid = %d AND ups.active = 1", $nid);
-    while ($row = db_fetch_object($result)) {
+    $result = db_query("SELECT * FROM {uc_products} up LEFT JOIN {uc_product_stock} ups ON ups.sku = up.model WHERE up.nid = :nid AND ups.active = 1", array(':nid' => $nid));
+    foreach ($result as $row) {
       $stockinfo['stock'] = $row->stock;
       $stockinfo['model'] = $row->model;
     }
@@ -171,12 +173,11 @@ function uc_out_of_stock_query() {
   $return = array_combine($_POST['form_ids'], array_fill(0, count($_POST['form_ids']), NULL));
   // If no attributes given we can do one query to fetch everything
   if (empty($_POST['attr_ids'])) {
-    $result = db_query('SELECT ups.stock, up.nid
-                        FROM {uc_products} up
+    $result = db_query('SELECT ups.stock, up.nid FROM {uc_products} up
                         LEFT JOIN {uc_product_stock} ups ON ups.sku = up.model
-                        WHERE up.nid IN(' . db_placeholders($_POST['node_ids'], 'int') . ')
-                        AND ups.active = 1', $_POST['node_ids']);
-    while ($product = db_fetch_object($result)) {
+                        WHERE up.nid IN(:nids)
+                        AND ups.active = 1', array(':nids' => $_POST['node_ids']));
+    foreach ($result as $product) {
       $key = array_search($product->nid, $_POST['node_ids']);
       $return[$_POST['form_ids'][$key]] = $product->stock;
     }
@@ -197,7 +198,7 @@ function uc_out_of_stock_query() {
   }
 
   // if there is some response, print it
-  print drupal_json($return);
+  print drupal_json_output($return);
   exit;
 }
 
@@ -207,7 +208,7 @@ function uc_out_of_stock_settings() {
     '#type' => 'checkbox',
     '#title' => t('Display throbber'),
     '#default_value' => variable_get('uc_out_of_stock_throbber', TRUE),
-    '#description' => t('Display a throbber (animated wheel) next to add to cart button. This can be themed/styled and removed via CSS as well, but you can just disable with this setting.'),
+    '#description' => t('Display a throbber (animated wheel) next to add to cart button. This can be themed/styled and removed via CSS as well, but you can just disable it with this setting.'),
   );
 
   $form['uc_out_of_stock_instock'] = array(
@@ -217,29 +218,27 @@ function uc_out_of_stock_settings() {
     '#description' => t('Display how many items are in stock above the add to cart button or below the qty field if it is present. It can be themed and translated as normal. Please see the uc_out_of_stock.js file for hints. If product has attributes, it may be impossible to know the stock until the attribute is selected, so it will simply display a default "In stock" message.'),
   );
 
-  $text = check_markup(variable_get('uc_out_of_stock_text', UC_OUT_OF_STOCK_DEFAULT_HTML), variable_get('uc_out_of_stock_format', FILTER_FORMAT_DEFAULT), FALSE);
+  $uc_out_of_stock_text = variable_get('uc_out_of_stock_text', array('value' => '<span style="color: red;">Out of stock</span>', 'format' => NULL));
+  $text = check_markup($uc_out_of_stock_text['value'], $uc_out_of_stock_text['format']);
   $description = t('<div class="description">This is the value below rendered as you would expect to see it</div>');
   $text = '<div style="border: 1px solid lightgrey; padding: 10px;">' . $text . '</div>' . $description;
 
   $form['uc_out_of_stock_demo'] = array(
-    '#type' => 'markup',
-    '#value' => $text,
+    '#markup' => $text,
   );
-
   $form['uc_out_of_stock_text'] = array(
-    '#type' => 'textarea',
+    '#type' => 'text_format',
     '#title' => t('Out of stock replacement HTML'),
-    '#default_value' => variable_get('uc_out_of_stock_text', UC_OUT_OF_STOCK_DEFAULT_HTML),
+    '#default_value' => $uc_out_of_stock_text['value'],
+    '#format' => $uc_out_of_stock_text['format'],
     '#description' => t('The HTML that will replace the Add To Cart button if no stock is available.'),
   );
-
-  $form['uc_out_of_stock_format'] = filter_form(variable_get('uc_out_of_stock_format', FILTER_FORMAT_DEFAULT), NULL, array('uc_out_of_stock_format'));
 
   $form['advanced'] = array(
     '#type' => 'fieldset',
     '#title' => t('Advanced settings'),
     '#collapsible' => TRUE,
-    '#collapsed' => TRUE,
+    '#collapsed' => !variable_get('uc_out_of_stock_disable_js', FALSE),
   );
   $form['advanced']['uc_out_of_stock_disable_js'] = array(
     '#type' => 'checkbox',
@@ -299,7 +298,7 @@ function uc_out_of_stock_validate_form_addtocart($form, &$form_state) {
   // Uses the class of the add to cart button of both node view and catalog
   // view to decide if we should validate stock or not
   // i.e. If some other form_alter added another button, do nothing (uc_wishlist)
-  if ($class == 'node-add-to-cart' || $class == 'list-add-to-cart') {
+  if (in_array('node-add-to-cart', $class) || in_array('list-add-to-cart', $class)) {
     $attrs = $form_state['values']['attributes'];
     foreach ((array)$attrs as $aid => $oids) {
       $attribute = uc_attribute_load($aid);
@@ -338,41 +337,37 @@ function uc_out_of_stock_validate_cart_items($items, $page = 'cart') {
   foreach ($items as $k => $item) {
     // Convert it to object just in case is an array (if coming from a form POST)
     $item = (object) $item;
-    // Validate unless the item was being removed
-    // Starting from Ubercart 2.6, remove are buttons so a different
-    // approach not to validate is used in
-    // uc_out_of_stock_validate_form_addtocart().
-    // Leaving support for checkboxes
-    if (!is_numeric($item->remove) || !$item->remove) {
-      // Unserialize data if string
-      if (is_string($item->data)) {
-        $item->data = unserialize($item->data);
+    // Unserialize data if string
+    if (is_string($item->data)) {
+      $item->data = unserialize($item->data);
+    }
+    // If the items comes from the submitted cart, it doesn't have the model
+    // set, so we try to get it from the stored cart items which is filled
+    // properly with the model.
+    // For that, we assume that the sorting is the same, and if not,
+    // we provide an alternative method which is probably not
+    // very good in terms of performance, but the sorting of both arrays
+    // should be the same
+    if (!isset($item->model)) {
+      $stored_item = $stored_cart_items[$item->cart_item_id];
+      if ($item->nid == $stored_item->nid && $item->data == $stored_item->data) {
+        $model = $stored_item->model;
       }
-      // If the items comes from the submitted cart, it doesn't have the model
-      // set, so we try to get it from the stored cart items which is filled
-      // properly with the model.
-      // For that, we assume that the sorting is the same, and if not,
-      // we provide an alternative method which is probably not
-      // very good in terms of performance, but the sorting of both arrays
-      // should be the same
-      if (!isset($item->model)) {
-        $stored_item = $stored_cart_items[$k];
-        if ($item->nid == $stored_item->nid && $item->data == $stored_item->data) {
-          $model = $stored_item->model;
-        }
-        else {
-          foreach ($stored_cart_items as $stored_item) {
-            if ($item->nid == $stored_item->nid && $item->data == $stored_item->data) {
-              $model = $stored_item->model;
-            }
+      else {
+        foreach ($stored_cart_items as $stored_item) {
+          if ($item->nid == $stored_item->nid && $item->data == $stored_item->data) {
+            $model = $stored_item->model;
           }
         }
-        $item->model = $model;
       }
-      $cart_items[$item->model]['item'] = $item;
-      $cart_items[$item->model]['qty'] += $item->qty;
-      $cart_items[$item->model]['key'] = $k;
+      $item->model = $model;
     }
+    $cart_items[$item->model]['item'] = $item;
+    if (!isset($cart_items[$item->model]['qty'])) {
+      $cart_items[$item->model]['qty'] = 0;
+    }
+    $cart_items[$item->model]['qty'] += $item->qty;
+    $cart_items[$item->model]['key'] = $k;
   }
 
   // Now for each model, check the stock
@@ -478,7 +473,7 @@ function _uc_out_of_stock_get_error($type, $nid, $attrs, $stock, $qty = 0) {
       $error['msg'] = t("We're sorry. We have now only @qty of the product @product left in stock.", array('@qty' => format_plural($error['stock'], '1 unit', '@count units'), '@product' => $error['product']));
     }
     if ($error['qty_in_cart']) {
-      $error['msg'] .= ' '. t("You have currently @qty in your <a href=\"@cart-url\">shopping cart</a>.", array('@qty' => format_plural($error['qty_in_cart'], '1 unit', '@count units'), '@cart-url' => url('cart')));
+      $error['msg'] .= ' ' . t("You have currently @qty in your <a href=\"@cart-url\">shopping cart</a>.", array('@qty' => format_plural($error['qty_in_cart'], '1 unit', '@count units'), '@cart-url' => url('cart')));
     }
   }
 
@@ -487,31 +482,3 @@ function _uc_out_of_stock_get_error($type, $nid, $attrs, $stock, $qty = 0) {
 
   return $error;
 }
-
-/**
- * NOTE: I am leaving this function for reference, due to how the hook is invoked
- * and worked out, not only from core but from other modules
- * I think it's better not to have a validation at this point
- * but just support as many modules as we can on form_alter
- *
- * Implementation of hook_add_to_cart()
- *
- * Further prevention of adding out of stock items in case the form validation
- * hooks don't apply.
- * i.e. using a module that uses add_to_cart() directly (uc_wishlist for example)
- */
-/*
-function uc_out_of_stock_add_to_cart($nid, $qty, $data) {
- $error = uc_out_of_stock_validate_addtocart($nid, $data['attributes']);
- if ($error !== FALSE) {
-   $result[] = array(
-      'success' => FALSE,
-      'message' => $error,
-    );
- }
-  return $result;
-}
- *
- * /
- */
-
