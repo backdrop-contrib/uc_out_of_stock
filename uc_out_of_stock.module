@@ -291,7 +291,7 @@ function uc_out_of_stock_validate_form_addtocart($form, &$form_state) {
   // view to decide if we should validate stock or not
   // i.e. If some other form_alter added another button, do nothing (uc_wishlist)
   if (in_array('node-add-to-cart', $class) || in_array('list-add-to-cart', $class)) {
-    $attrs = $form_state['values']['attributes'];
+    $attrs = isset($form_state['values']['attributes']) ? $form_state['values']['attributes'] : array();
     foreach ((array)$attrs as $aid => $oids) {
       $attribute = uc_attribute_load($aid);
       // 1 is select and 2 is radio, the only supported attributes that may have stock adjustments
