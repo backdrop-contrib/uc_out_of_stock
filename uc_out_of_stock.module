@@ -83,6 +83,7 @@ function uc_out_of_stock_menu() {
  *   Return an array of the stock information or null if NONE
  */
 function uc_out_of_stock_getstockinfo_from_model($model) {
+  $stockinfo = array();
   $stock = db_query("SELECT ups.stock FROM {uc_product_stock} ups WHERE ups.active = 1 AND ups.sku = :sku", array(':sku' => $model))->fetchField();
   if (is_numeric($stock)) {
     $stockinfo['stock'] = $stock;
