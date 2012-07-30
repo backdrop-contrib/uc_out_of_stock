@@ -103,6 +103,7 @@ function uc_out_of_stock_getstockinfo_from_model($model) {
  */
 
 function uc_out_of_stock_getstockinfo($nid, $attrs) {
+  $stockinfo = array();
   // Query main sku is true by default, if some attribute combination is found,
   // it will be set to FALSE
   // If the combination was not found, and all attributes were indeed selected, we are assuming that some
