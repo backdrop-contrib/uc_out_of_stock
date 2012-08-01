@@ -378,10 +378,10 @@ function uc_out_of_stock_validate_cart_items($items, $page = 'cart') {
             $qty = $cart_item['qty'];
           }
           if ($stockinfo['stock'] <= 0) {
-            $error = _uc_out_of_stock_get_error('out_of_stock', $item->nid, $item->data['attributes'], $stockinfo['stock']);
+            $error = _uc_out_of_stock_get_error('out_of_stock', $item->nid, isset($item->data['attributes']) ? $item->data['attributes'] : array(), $stockinfo['stock']);
           }
           else {
-            $error = _uc_out_of_stock_get_error('not_enough', $item->nid, $item->data['attributes'], $stockinfo['stock'], $qty);
+            $error = _uc_out_of_stock_get_error('not_enough', $item->nid, isset($item->data['attributes']) ? $item->data['attributes'] : array(), $stockinfo['stock'], $qty);
           }
           form_set_error("items][{$cart_item['key']}][qty", $error['msg']);
         }
