@@ -166,7 +166,8 @@ function uc_out_of_stock_query() {
 
   $return = array_combine($_POST['form_ids'], array_fill(0, count($_POST['form_ids']), NULL));
   // If no attributes given we can do one query to fetch everything
-  if (empty($_POST['attr_ids'])) {
+  $filtered_attrs = array_filter($_POST['attr_ids']);
+  if (empty($filtered_attrs)) {
     $result = db_query('SELECT ups.stock, up.nid FROM {uc_products} up
                         LEFT JOIN {uc_product_stock} ups ON ups.sku = up.model
                         WHERE up.nid IN(:nids)
