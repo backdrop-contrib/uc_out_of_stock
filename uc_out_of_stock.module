@@ -303,7 +303,7 @@ function uc_out_of_stock_validate_form_addtocart($form, &$form_state) {
       }
     }
     $nid = $form_state['values']['nid'];
-    $qty = $form_state['values']['qty'] ? $form_state['values']['qty'] : 1;
+    $qty = isset($form_state['values']['qty']) ? $form_state['values']['qty'] : 1;
 
     $error = uc_out_of_stock_validate_addtocart($nid, $attrs, $qty);
     if ($error !== FALSE) {
