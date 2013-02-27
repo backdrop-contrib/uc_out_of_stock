@@ -288,26 +288,28 @@ function uc_out_of_stock_validate_addtocart($nid, $attrs, $qty_add) {
  * Support teaser view, full node view and catalog view
  */
 function uc_out_of_stock_validate_form_addtocart($form, &$form_state) {
-  $class = $form_state['clicked_button']['#attributes']['class'];
+  if (isset($form_state['clicked_button']['#attributes']['class'])) {
+    $class = $form_state['clicked_button']['#attributes']['class'];
 
-  // Uses the class of the add to cart button of both node view and catalog
-  // view to decide if we should validate stock or not
-  // i.e. If some other form_alter added another button, do nothing (uc_wishlist)
-  if (in_array('node-add-to-cart', $class) || in_array('list-add-to-cart', $class)) {
-    $attrs = isset($form_state['values']['attributes']) ? $form_state['values']['attributes'] : array();
-    foreach ((array)$attrs as $aid => $oids) {
-      $attribute = uc_attribute_load($aid);
-      // 1 is select and 2 is radio, the only supported attributes that may have stock adjustments
-      if ($attribute->display != 1 && $attribute->display != 2) {
-        unset($attrs[$aid]);
+    // Uses the class of the add to cart button of both node view and catalog
+    // view to decide if we should validate stock or not
+    // i.e. If some other form_alter added another button, do nothing (uc_wishlist)
+    if (in_array('node-add-to-cart', $class) || in_array('list-add-to-cart', $class)) {
+      $attrs = isset($form_state['values']['attributes']) ? $form_state['values']['attributes'] : array();
+      foreach ((array)$attrs as $aid => $oids) {
+        $attribute = uc_attribute_load($aid);
+        // 1 is select and 2 is radio, the only supported attributes that may have stock adjustments
+        if ($attribute->display != 1 && $attribute->display != 2) {
+          unset($attrs[$aid]);
+        }
       }
-    }
-    $nid = $form_state['values']['nid'];
-    $qty = isset($form_state['values']['qty']) ? $form_state['values']['qty'] : 1;
+      $nid = $form_state['values']['nid'];
+      $qty = isset($form_state['values']['qty']) ? $form_state['values']['qty'] : 1;
 
-    $error = uc_out_of_stock_validate_addtocart($nid, $attrs, $qty);
-    if ($error !== FALSE) {
-      form_set_error('uc_out_of_stock', $error['msg']);
+      $error = uc_out_of_stock_validate_addtocart($nid, $attrs, $qty);
+      if ($error !== FALSE) {
+        form_set_error('uc_out_of_stock', $error['msg']);
+      }
     }
   }
 }
