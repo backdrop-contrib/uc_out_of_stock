@@ -418,7 +418,7 @@ function uc_out_of_stock_validate_form_checkout($form, &$form_state) {
  */
 function uc_out_of_stock_validate_form_cart($form, &$form_state) {
   $items = $form_state['values']['items'];
-  if (substr($form_state['clicked_button']['#name'], 0, 7) != 'remove-') {
+  if (substr($form_state['clicked_button']['#name'], 0, 7) != 'remove-' && $form_state['clicked_button']['#id'] != 'edit-empty' ) {
     uc_out_of_stock_validate_cart_items($items, 'cart');
   }
 }
