@@ -154,6 +154,10 @@ function uc_out_of_stock_getstockinfo($nid, $attrs) {
 }
 
 function uc_out_of_stock_query() {
+  if (!isset($_POST['form_ids']) || !isset($_POST['node_ids'])) {
+    print 'Missing form_ids and/or node_ids.';
+    exit;
+  }
   if (count($_POST['form_ids']) != count($_POST['node_ids'])) {
     print 'Different amount of form_ids than node_ids.';
     exit;
