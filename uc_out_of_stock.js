@@ -85,7 +85,7 @@
               var form = $('#' + form_id);
               if (stock_level != null && parseInt(stock_level) <= 0) {
                 // hide add to cart button
-                $("input:submit.node-add-to-cart,input:submit.list-add-to-cart", form).hide();
+                $("input:submit.node-add-to-cart,input:submit.list-add-to-cart,button.node-add-to-cart,button.list-add-to-cart", form).hide();
                 // hide qty label, field and wrapper if present and if it follows
                 // default theme output
                 $("label[for=" + $(":input[name=qty]", form).attr('id') + "]", form).hide();
@@ -106,7 +106,7 @@
                 $(":input[name=qty]", form).show();
                 $("#" + $(":input[name=qty]", form).attr('id') + "-wrapper", form).show();
                 // show add to cart button
-                $("input:submit.node-add-to-cart,input:submit.list-add-to-cart", form).show();
+                $("input:submit.node-add-to-cart,input:submit.list-add-to-cart,button.node-add-to-cart,button.list-add-to-cart", form).show();
                 if (Drupal.settings.uc_out_of_stock.instock) {
                   $(".uc-out-of-stock-instock", form).html(Drupal.theme('ucOutOfStockInStock', stock_level));
                   $(".uc-out-of-stock-instock", form).show();
@@ -133,7 +133,7 @@
         $(this).addClass('uc-out-stock-processed');
         forms.push($(this));
         if (Drupal.settings.uc_out_of_stock.throbber) {
-          $("input:submit.node-add-to-cart,input:submit.list-add-to-cart", $(this)).before('<div class="uc_out_of_stock_throbbing">&nbsp;&nbsp;&nbsp;&nbsp;</div>');
+          $("input:submit.node-add-to-cart,input:submit.list-add-to-cart,button.node-add-to-cart,button.list-add-to-cart", $(this)).before('<div class="uc_out_of_stock_throbbing">&nbsp;&nbsp;&nbsp;&nbsp;</div>');
         }
 
         if (Drupal.settings.uc_out_of_stock.instock) {
@@ -141,11 +141,11 @@
             $(":input[name=qty]", $(this)).after('<div class="uc-out-of-stock-instock"></div>');
           }
           else {
-            $("input:submit.node-add-to-cart,input:submit.list-add-to-cart", $(this)).before('<div class="uc-out-of-stock-instock"></div>');
+            $("input:submit.node-add-to-cart,input:submit.list-add-to-cart,button.node-add-to-cart,button.list-add-to-cart", $(this)).before('<div class="uc-out-of-stock-instock"></div>');
           }
         }
 
-        $("input:submit.node-add-to-cart,input:submit.list-add-to-cart", $(this)).after('<div class="uc_out_of_stock_html"></div>');
+        $("input:submit.node-add-to-cart,input:submit.list-add-to-cart,button.node-add-to-cart,button.list-add-to-cart", $(this)).after('<div class="uc_out_of_stock_html"></div>');
         var form = $(this);
 
         $("[name*=attributes]", $(this)).filter(':input:not(:text):not(:checkbox)').change(function(){
