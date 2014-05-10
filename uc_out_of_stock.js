@@ -45,7 +45,7 @@
 
           // find qty
           product['qty'] = 1;
-          qty = $(":input[name=qty]", form).val()
+          qty = $(':input[name="qty"]', form).val()
           if (qty) {
             product['qty'] = qty;
           }
@@ -137,7 +137,7 @@
         }
 
         if (Drupal.settings.uc_out_of_stock.instock) {
-          if ($(":input[name=qty]", $(this)).length) {
+          if ($(':input[name="qty"][type!="hidden"]', $(this)).length) {
             $(":input[name=qty]", $(this)).after('<div class="uc-out-of-stock-instock"></div>');
           }
           else {
