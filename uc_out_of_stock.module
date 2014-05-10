@@ -292,6 +292,12 @@ function uc_out_of_stock_validate_addtocart($nid, $attrs, $qty_add) {
  * Support teaser view, full node view and catalog view
  */
 function uc_out_of_stock_validate_form_addtocart($form, &$form_state) {
+  // If there were previews form errors, such as missing attributes,
+  // prevent validation as infomration might not be complete.
+  if (form_get_errors()) {
+    return;
+  }
+
   if (isset($form_state['clicked_button']['#attributes']['class'])) {
     $class = $form_state['clicked_button']['#attributes']['class'];
 
@@ -300,6 +306,7 @@ function uc_out_of_stock_validate_form_addtocart($form, &$form_state) {
     // i.e. If some other form_alter added another button, do nothing (uc_wishlist)
     if (in_array('node-add-to-cart', $class) || in_array('list-add-to-cart', $class)) {
       $attrs = isset($form_state['values']['attributes']) ? $form_state['values']['attributes'] : array();
+
       foreach ((array)$attrs as $aid => $oids) {
         $attribute = uc_attribute_load($aid);
         // 1 is select and 2 is radio, the only supported attributes that may have stock adjustments
