@@ -487,10 +487,10 @@ function _uc_out_of_stock_get_error($type, $nid, $attrs, $stock, $qty = 0) {
 
   if ($type == 'not_enough') {
     if (count($attrs)) {
-      $error['msg'] = t("We're sorry. We have now only @qty of the product @product (@options) left in stock.", array('@qty' => format_plural($error['stock'], '1 unit', '@count units'), '@product' => $error['product'], '@options' => $error['options']));
+      $error['msg'] = t("We're sorry. We only have @qty of the product @product (@options) left in stock.", array('@qty' => format_plural($error['stock'], '1 unit', '@count units'), '@product' => $error['product'], '@options' => $error['options']));
     }
     else {
-      $error['msg'] = t("We're sorry. We have now only @qty of the product @product left in stock.", array('@qty' => format_plural($error['stock'], '1 unit', '@count units'), '@product' => $error['product']));
+      $error['msg'] = t("We're sorry. We only have @qty of the product @product left in stock.", array('@qty' => format_plural($error['stock'], '1 unit', '@count units'), '@product' => $error['product']));
     }
     if ($error['qty_in_cart']) {
       $error['msg'] .= ' ' . t("You have currently @qty in your <a href=\"@cart-url\">shopping cart</a>.", array('@qty' => format_plural($error['qty_in_cart'], '1 unit', '@count units'), '@cart-url' => url('cart')));
