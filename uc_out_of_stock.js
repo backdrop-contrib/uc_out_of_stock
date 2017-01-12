@@ -24,21 +24,23 @@
 
           $("[name*=attributes]", form).filter(':input:not(:text):not(:checkbox)').each(function(index){
             // We are assuming the value has to be there, seems to be working for radios and checkboxes
-            id = $(this).attr('name').match(/attributes\[([0-9]*)\]/)[1];
-            if ($(this).is(':radio')) {
-              attributes.found['attr'+id] = 1;
-              if ($(this).is(':checked')) {
+            if ($(this).attr('name').match(/attributes\[([0-9]*)\]/)) {
+              id = $(this).attr('name').match(/attributes\[([0-9]*)\]/)[1];
+              if ($(this).is(':radio')) {
+                attributes.found['attr'+id] = 1;
+                if ($(this).is(':checked')) {
+                  if ($(this).val()) {
+                    attributes.value['attr'+id] = 1;
+                    attr_ids.push(nid + ':' + id + ':' + $(this).val());
+                  }
+                }
+              }
+              else if ($(this).is('select')) {
+                attributes.found['attr'+id] = 1;
                 if ($(this).val()) {
                   attributes.value['attr'+id] = 1;
                   attr_ids.push(nid + ':' + id + ':' + $(this).val());
                 }
-              }
-            }
-            else if ($(this).is('select')) {
-              attributes.found['attr'+id] = 1;
-              if ($(this).val()) {
-                attributes.value['attr'+id] = 1;
-                attr_ids.push(nid + ':' + id + ':' + $(this).val());
               }
             }
           });
