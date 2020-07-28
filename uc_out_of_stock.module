@@ -8,26 +8,37 @@
  */
 
 /**
- * Implements of hook_form_alter()
+ * Implements hook_config_info().
+ */
+function uc_out_of_stock_config_info() {
+  $prefixes['uc_out_of_stock.settings'] = array(
+    'label' => t('Module name settings'),
+    'group' => t('Configuration'),
+  );
+}
+
+/**
+ * Implements hook_form_alter().
  */
 function uc_out_of_stock_form_alter(&$form, &$form_state, $form_id) {
+  $config = config('uc_out_of_stock.settings');
   static $settings_js = array();
 
   $forms = array('uc_product_add_to_cart_form', 'uc_catalog_buy_it_now_form');
   foreach ($forms as $id) {
-    if ( drupal_substr($form_id, 0, drupal_strlen($id)) == $id ) {
+    if ( backdrop_substr($form_id, 0, backdrop_strlen($id)) == $id ) {
 
       // Only add Javascript if it was enabled
-      if (!variable_get('uc_out_of_stock_disable_js', FALSE)) {
-        drupal_add_js(drupal_get_path('module', 'uc_out_of_stock') . '/uc_out_of_stock.js');
-        drupal_add_css(drupal_get_path('module', 'uc_out_of_stock') . '/uc_out_of_stock.css');
+      if (!$config->get('uc_out_of_stock_disable_js')) {
+        backdrop_add_js(backdrop_get_path('module', 'uc_out_of_stock') . '/uc_out_of_stock.js');
+        backdrop_add_css(backdrop_get_path('module', 'uc_out_of_stock') . '/uc_out_of_stock.css');
         if (empty($settings_js)) {
           $settings_js['uc_out_of_stock']['path'] = url('uc_out_of_stock/query');
-          $settings_js['uc_out_of_stock']['throbber'] = variable_get('uc_out_of_stock_throbber', TRUE);
-          $settings_js['uc_out_of_stock']['instock'] = variable_get('uc_out_of_stock_instock', TRUE);
-          $uc_out_of_stock_text = variable_get('uc_out_of_stock_text', array('value' => '<span style="color: red;">Out of stock</span>', 'format' => NULL));
+          $settings_js['uc_out_of_stock']['throbber'] = $config->get('uc_out_of_stock_throbber');
+          $settings_js['uc_out_of_stock']['instock'] = $config->get('uc_out_of_stock_instock');
+          $uc_out_of_stock_text = $config->get('uc_out_of_stock_text');
           $settings_js['uc_out_of_stock']['msg'] = check_markup($uc_out_of_stock_text['value'], $uc_out_of_stock_text['format']);
-          drupal_add_js($settings_js, 'setting');
+          backdrop_add_js($settings_js, 'setting');
         }
       }
 
@@ -46,7 +57,7 @@ function uc_out_of_stock_form_alter(&$form, &$form_state, $form_id) {
 }
 
 /**
- * Implementation of hook_menu()
+ * Implements hook_menu().
  */
 function uc_out_of_stock_menu() {
   $items = array();
@@ -55,7 +66,7 @@ function uc_out_of_stock_menu() {
     'title' => 'Out of Stock Notification',
     'access arguments' => array('administer store'),
     'description' => 'Configure out of stock settings.',
-    'page callback' => 'drupal_get_form',
+    'page callback' => 'backdrop_get_form',
     'page arguments' => array('uc_out_of_stock_settings'),
     'type' => MENU_NORMAL_ITEM,
   );
@@ -102,6 +113,10 @@ function uc_out_of_stock_getstockinfo_from_model($model) {
  *   Return an array of the stock information or null if NONE
  */
 
+/**
+ * @todo Please document this function.
+ * @see http://drupal.org/node/1354
+ */
 function uc_out_of_stock_getstockinfo($nid, $attrs) {
   $stockinfo = array();
   // Query main sku is true by default, if some attribute combination is found,
@@ -153,6 +168,10 @@ function uc_out_of_stock_getstockinfo($nid, $attrs) {
   return $stockinfo;
 }
 
+/**
+ * @todo Please document this function.
+ * @see http://drupal.org/node/1354
+ */
 function uc_out_of_stock_query() {
   if (!isset($_POST['form_ids']) || !isset($_POST['node_ids'])) {
     print 'Missing form_ids and/or node_ids.';
@@ -197,27 +216,33 @@ function uc_out_of_stock_query() {
   }
 
   // if there is some response, print it
-  print drupal_json_output($return);
+  print backdrop_json_output($return);
   exit;
 }
 
+/**
+ * @todo Please document this function.
+ * @see http://drupal.org/node/1354
+ */
 function uc_out_of_stock_settings() {
+  $config = config('uc_out_of_stock.settings');
 
+  $form['#config'] = 'uc_out_of_stock.settings';
   $form['uc_out_of_stock_throbber'] = array(
     '#type' => 'checkbox',
     '#title' => t('Display throbber'),
-    '#default_value' => variable_get('uc_out_of_stock_throbber', TRUE),
+    '#default_value' => $config->get('uc_out_of_stock_throbber'),
     '#description' => t('Display a throbber (animated wheel) next to add to cart button. This can be themed/styled and removed via CSS as well, but you can just disable it with this setting.'),
   );
 
   $form['uc_out_of_stock_instock'] = array(
     '#type' => 'checkbox',
     '#title' => t('Display in stock information'),
-    '#default_value' => variable_get('uc_out_of_stock_instock', TRUE),
+    '#default_value' => $config->get('uc_out_of_stock_instock'),
     '#description' => t('Display how many items are in stock above the add to cart button or below the qty field if it is present. It can be themed and translated as normal. Please see the uc_out_of_stock.js file for hints. If product has attributes, it may be impossible to know the stock until the attribute is selected, so it will simply display a default "In stock" message.'),
   );
 
-  $uc_out_of_stock_text = variable_get('uc_out_of_stock_text', array('value' => '<span style="color: red;">Out of stock</span>', 'format' => NULL));
+  $uc_out_of_stock_text = $config->get('uc_out_of_stock_text');
   $text = check_markup($uc_out_of_stock_text['value'], $uc_out_of_stock_text['format']);
   $description = t('<div class="description">This is the value below rendered as you would expect to see it</div>');
   $text = '<div style="border: 1px solid lightgrey; padding: 10px;">' . $text . '</div>' . $description;
@@ -237,12 +262,12 @@ function uc_out_of_stock_settings() {
     '#type' => 'fieldset',
     '#title' => t('Advanced settings'),
     '#collapsible' => TRUE,
-    '#collapsed' => !variable_get('uc_out_of_stock_disable_js', FALSE),
+    '#collapsed' => !$config->get('uc_out_of_stock_disable_js'),
   );
   $form['advanced']['uc_out_of_stock_disable_js'] = array(
     '#type' => 'checkbox',
     '#title' => t('Disable javascript'),
-    '#default_value' => variable_get('uc_out_of_stock_disable_js', FALSE),
+    '#default_value' => $config->get('uc_out_of_stock_disable_js'),
     '#description' => t('If you disable javascript you will lose real-time checking of stock, support for checking for stock on attribute change and all of the HTML replacement confgured above. Use it with caution. This can be useful if you think this module is in conflict with some other third-party Ubercart module and you want to keep the server side validation of this module.'),
   );
 
@@ -307,7 +332,7 @@ function uc_out_of_stock_validate_form_addtocart($form, &$form_state) {
     if (in_array('node-add-to-cart', $class) || in_array('list-add-to-cart', $class)) {
       $attrs = isset($form_state['values']['attributes']) ? $form_state['values']['attributes'] : array();
 
-      foreach ((array)$attrs as $aid => $oids) {
+      foreach ((array) $attrs as $aid => $oids) {
         $attribute = uc_attribute_load($aid);
         // 1 is select and 2 is radio, the only supported attributes that may have stock adjustments
         if ($attribute->display != 1 && $attribute->display != 2) {
@@ -498,7 +523,7 @@ function _uc_out_of_stock_get_error($type, $nid, $attrs, $stock, $qty = 0) {
   }
 
   // Invoke hook_uc_out_of_stock_error_alter() to allow all modules to alter the resulting error message.
-  drupal_alter('uc_out_of_stock_error', $error, $product);
+  backdrop_alter('uc_out_of_stock_error', $error, $product);
 
   return $error;
 }

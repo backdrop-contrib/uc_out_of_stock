@@ -1,5 +1,5 @@
 (function ($) {
-  Drupal.behaviors.ucOutOfStock =  {
+  Backdrop.behaviors.ucOutOfStock =  {
     attach: function(context) {
 
       if(typeof console === "undefined") {
@@ -66,7 +66,7 @@
             }
           }
 
-          if (Drupal.settings.uc_out_of_stock.throbber) {
+          if (Backdrop.settings.uc_out_of_stock.throbber) {
             $(".uc_out_of_stock_throbbing", form).addClass('uc_oos_throbbing');
           }
           form_ids.push(form.attr('id'));
@@ -80,7 +80,7 @@
         var post = { 'form_ids[]': form_ids, 'node_ids[]': node_ids, 'attr_ids[]': attr_ids }
         $.ajax({
           type: 'post',
-          url : Drupal.settings.uc_out_of_stock.path,
+          url : Backdrop.settings.uc_out_of_stock.path,
           data: post,
           success : function (data, textStatus) {
             $.each(data, function(form_id, stock_level) {
@@ -94,9 +94,9 @@
                 $(":input[name=qty]", form).hide();
                 $("#" + $(":input[name=qty]", form).attr('id') + "-wrapper", form).hide();
                 // Show out of stock message
-                $(".uc_out_of_stock_html", form).html(Drupal.settings.uc_out_of_stock.msg);
+                $(".uc_out_of_stock_html", form).html(Backdrop.settings.uc_out_of_stock.msg);
 
-                if (Drupal.settings.uc_out_of_stock.instock) {
+                if (Backdrop.settings.uc_out_of_stock.instock) {
                   $(".uc-out-of-stock-instock", form).hide();
                 }
               }
@@ -109,20 +109,20 @@
                 $("#" + $(":input[name=qty]", form).attr('id') + "-wrapper", form).show();
                 // show add to cart button
                 $("input:submit.node-add-to-cart,input:submit.list-add-to-cart,button.node-add-to-cart,button.list-add-to-cart", form).show();
-                if (Drupal.settings.uc_out_of_stock.instock) {
-                  $(".uc-out-of-stock-instock", form).html(Drupal.theme('ucOutOfStockInStock', stock_level));
+                if (Backdrop.settings.uc_out_of_stock.instock) {
+                  $(".uc-out-of-stock-instock", form).html(Backdrop.theme('ucOutOfStockInStock', stock_level));
                   $(".uc-out-of-stock-instock", form).show();
                 }
               }
 
-              if (Drupal.settings.uc_out_of_stock.throbber) {
+              if (Backdrop.settings.uc_out_of_stock.throbber) {
                 $(".uc_out_of_stock_throbbing", form).removeClass('uc_oos_throbbing');
               }
             });
           },
           error : function (jqXHR, textStatus, errorThrown) {
             console.log('uc_out_of_stock: ' + textStatus + ': ' + jqXHR.responseText);
-            if (Drupal.settings.uc_out_of_stock.throbber) {
+            if (Backdrop.settings.uc_out_of_stock.throbber) {
               $(".uc_out_of_stock_throbbing").removeClass('uc_oos_throbbing');
             }
           },
@@ -134,11 +134,11 @@
       $("form[id*=uc-product-add-to-cart-form], form[id*=uc-catalog-buy-it-now-form]").not('.uc-out-stock-processed').each(function() {
         $(this).addClass('uc-out-stock-processed');
         forms.push($(this));
-        if (Drupal.settings.uc_out_of_stock.throbber) {
+        if (Backdrop.settings.uc_out_of_stock.throbber) {
           $("input:submit.node-add-to-cart,input:submit.list-add-to-cart,button.node-add-to-cart,button.list-add-to-cart", $(this)).before('<div class="uc_out_of_stock_throbbing">&nbsp;&nbsp;&nbsp;&nbsp;</div>');
         }
 
-        if (Drupal.settings.uc_out_of_stock.instock) {
+        if (Backdrop.settings.uc_out_of_stock.instock) {
           if ($(':input[name="qty"][type!="hidden"]', $(this)).length) {
             $(":input[name=qty]", $(this)).after('<div class="uc-out-of-stock-instock"></div>');
           }
@@ -167,12 +167,12 @@
     }
   }
 
-  Drupal.theme.prototype.ucOutOfStockInStock = function (stock) {
+  Backdrop.theme.prototype.ucOutOfStockInStock = function (stock) {
     if (stock == undefined) {
-      return Drupal.t('In stock');
+      return Backdrop.t('In stock');
     }
     else {
-      return Drupal.t('@stock in stock', {'@stock' : stock});
+      return Backdrop.t('@stock in stock', {'@stock' : stock});
     }
   };
 })(jQuery);
