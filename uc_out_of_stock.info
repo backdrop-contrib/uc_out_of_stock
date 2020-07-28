@@ -1,7 +1,6 @@
-name = Out of stock notificator
+name = Out of stock notification
 description = It tells the user if an item is out of stock. It supports attributes.
 backdrop = 1.x
 type = module
 dependencies[] =  uc_stock
 package = Ubercart - extra
-

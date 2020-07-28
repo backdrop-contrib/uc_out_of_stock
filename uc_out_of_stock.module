@@ -232,30 +232,24 @@ function uc_out_of_stock_settings() {
     '#type' => 'checkbox',
     '#title' => t('Display throbber'),
     '#default_value' => $config->get('uc_out_of_stock_throbber'),
-    '#description' => t('Display a throbber (animated wheel) next to add to cart button. This can be themed/styled and removed via CSS as well, but you can just disable it with this setting.'),
+    '#description' => t('Display a throbber (animated wheel) next to add to cart button.'),
   );
 
   $form['uc_out_of_stock_instock'] = array(
     '#type' => 'checkbox',
     '#title' => t('Display in stock information'),
     '#default_value' => $config->get('uc_out_of_stock_instock'),
-    '#description' => t('Display how many items are in stock above the add to cart button or below the qty field if it is present. It can be themed and translated as normal. Please see the uc_out_of_stock.js file for hints. If product has attributes, it may be impossible to know the stock until the attribute is selected, so it will simply display a default "In stock" message.'),
+    '#description' => t('Display how many items are in stock above the add to cart button or below the quantity field if it is present.'),
   );
-
-  $uc_out_of_stock_text = $config->get('uc_out_of_stock_text');
-  $text = check_markup($uc_out_of_stock_text['value'], $uc_out_of_stock_text['format']);
-  $description = t('<div class="description">This is the value below rendered as you would expect to see it</div>');
-  $text = '<div style="border: 1px solid lightgrey; padding: 10px;">' . $text . '</div>' . $description;
-
-  $form['uc_out_of_stock_demo'] = array(
-    '#markup' => $text,
-  );
+  if (module_exists('uc_attribute')) {
+    $form['uc_out_of_stock_instock']['#description'] .= ' ' . t('If product has attributes, it may be impossible to know the stock level until the attribute is selected. In this case it will simply display a default "In stock" message.');
+  }
   $form['uc_out_of_stock_text'] = array(
     '#type' => 'text_format',
     '#title' => t('Out of stock replacement HTML'),
     '#default_value' => $uc_out_of_stock_text['value'],
     '#format' => $uc_out_of_stock_text['format'],
-    '#description' => t('The HTML that will replace the Add To Cart button if no stock is available.'),
+    '#description' => t('The message that will replace the \'Add To Cart\' button if no stock is available.'),
   );
 
   $form['advanced'] = array(
@@ -266,9 +260,9 @@ function uc_out_of_stock_settings() {
   );
   $form['advanced']['uc_out_of_stock_disable_js'] = array(
     '#type' => 'checkbox',
-    '#title' => t('Disable javascript'),
+    '#title' => t('Disable Javascript'),
     '#default_value' => $config->get('uc_out_of_stock_disable_js'),
-    '#description' => t('If you disable javascript you will lose real-time checking of stock, support for checking for stock on attribute change and all of the HTML replacement confgured above. Use it with caution. This can be useful if you think this module is in conflict with some other third-party Ubercart module and you want to keep the server side validation of this module.'),
+    '#description' => t('If you disable Javascript you will lose real-time checking of stock, support for checking for stock on attribute change and all of the HTML replacement configured above. Use it with caution. This can be useful if you think this module is in conflict with some other third-party Ubercart module and you want to keep the server side validation of this module.'),
   );
 
 

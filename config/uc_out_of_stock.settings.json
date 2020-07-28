@@ -1,7 +1,10 @@
 {
     "_config_name": "uc_out_of_stock.settings",
-    "uc_out_of_stock_disable_js": "FALSE",
-    "uc_out_of_stock_throbber": "TRUE",
-    "uc_out_of_stock_instock": "TRUE",
-    "uc_out_of_stock_text": "dynamic value in file /uc_out_of_stock/uc_out_of_stock.module line 220"
+    "uc_out_of_stock_disable_js": 0,
+    "uc_out_of_stock_throbber": 0,
+    "uc_out_of_stock_instock": 1,
+    "uc_out_of_stock_text": {
+        "value": "<p>Out of stock.</p>\r\n",
+        "format": "filtered_html"
+    }
 }

@@ -22,10 +22,13 @@ function uc_out_of_stock_uninstall() {
  */
 function uc_out_of_stock_update_1000() {
   $config = config('uc_out_of_stock.settings');
-  $config->set('uc_out_of_stock_disable_js', update_variable_get('uc_out_of_stock_disable_js', 'FALSE'));
-  $config->set('uc_out_of_stock_throbber', update_variable_get('uc_out_of_stock_throbber', 'TRUE'));
-  $config->set('uc_out_of_stock_instock', update_variable_get('uc_out_of_stock_instock', 'TRUE'));
-  $config->set('uc_out_of_stock_text', update_variable_get('uc_out_of_stock_text', 'dynamic value in file /uc_out_of_stock/uc_out_of_stock.module line 220'));
+  $config->set('uc_out_of_stock_disable_js', update_variable_get('uc_out_of_stock_disable_js', false));
+  $config->set('uc_out_of_stock_throbber', update_variable_get('uc_out_of_stock_throbber', true));
+  $config->set('uc_out_of_stock_instock', update_variable_get('uc_out_of_stock_instock', true));
+  $config->set('uc_out_of_stock_text', update_variable_get('uc_out_of_stock_text', array(
+    'value' => '<p>Out of stock.</p>\r\n', 
+    'format' => 'filtered_html',
+  )));
   update_variable_del('uc_out_of_stock_disable_js');
   update_variable_del('uc_out_of_stock_throbber');
   update_variable_del('uc_out_of_stock_instock');
@@ -36,6 +39,5 @@ function uc_out_of_stock_update_1000() {
  * Implements hook_install().
  */
 function uc_out_of_stock_install() {
-  // Dynamically generated variable data was detected.
-  // /uc_out_of_stock/uc_out_of_stock.module line 220
+
 }
