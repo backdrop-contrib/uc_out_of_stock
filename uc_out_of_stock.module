@@ -67,7 +67,7 @@ function uc_out_of_stock_menu() {
     'access arguments' => array('administer store'),
     'description' => 'Configure out of stock settings.',
     'page callback' => 'backdrop_get_form',
-    'page arguments' => array('uc_out_of_stock_settings'),
+    'page arguments' => array('uc_out_of_stock_settings_form'),
     'type' => MENU_NORMAL_ITEM,
   );
 
@@ -224,10 +224,9 @@ function uc_out_of_stock_query() {
  * @todo Please document this function.
  * @see http://drupal.org/node/1354
  */
-function uc_out_of_stock_settings() {
+function uc_out_of_stock_settings_form() {
   $config = config('uc_out_of_stock.settings');
 
-  $form['#config'] = 'uc_out_of_stock.settings';
   $form['uc_out_of_stock_throbber'] = array(
     '#type' => 'checkbox',
     '#title' => t('Display throbber'),
@@ -247,8 +246,8 @@ function uc_out_of_stock_settings() {
   $form['uc_out_of_stock_text'] = array(
     '#type' => 'text_format',
     '#title' => t('Out of stock replacement HTML'),
-    '#default_value' => $uc_out_of_stock_text['value'],
-    '#format' => $uc_out_of_stock_text['format'],
+    '#default_value' => $config->get('uc_out_of_stock_text.value'),
+    '#format' => $config->get('uc_out_of_stock_text.format'),
     '#description' => t('The message that will replace the \'Add To Cart\' button if no stock is available.'),
   );
 
@@ -265,8 +264,39 @@ function uc_out_of_stock_settings() {
     '#description' => t('If you disable Javascript you will lose real-time checking of stock, support for checking for stock on attribute change and all of the HTML replacement configured above. Use it with caution. This can be useful if you think this module is in conflict with some other third-party Ubercart module and you want to keep the server side validation of this module.'),
   );
 
+  // Add a submit button
+  $form['actions']['#type'] = 'actions';
+  $form['actions']['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Save configuration'),
+  );
 
-  return system_settings_form($form);
+  return $form;
+}
+
+/**
+ * Submit handler for uc_out_of_stock_settings_form().
+ */
+function uc_out_of_stock_settings_form_submit($form, &$form_state) {
+  $config = config('uc_out_of_stock.settings');
+  $config->set('uc_out_of_stock_throbber', $form_state['values']['uc_out_of_stock_throbber']);
+  $config->set('uc_out_of_stock_instock', $form_state['values']['uc_out_of_stock_instock']);
+  // Save each file as permanent, preventing it from being deleted. 
+  if (isset($form_state['values']['uc_out_of_stock_text']['value'])) {
+    $config->set('uc_out_of_stock_text', $form_state['values']['uc_out_of_stock_text']);
+    $fids = filter_parse_file_fids($form_state['values']['uc_out_of_stock_text']['value']);
+    $files = file_load_multiple($fids);
+    foreach ($files as $fid => $file) {
+      if ($file && $file->status !== FILE_STATUS_PERMANENT) {
+        // This makes the file "self-referencing", so it will never be deleted.
+        file_usage_add($file, 'file', 'file', $file->fid);
+      }
+    }
+  }
+  $config->set('uc_out_of_stock_disable_js', $form_state['values']['uc_out_of_stock_disable_js']);
+  $config->save();
+
+  backdrop_set_message(t('The configuration options have been saved.'));
 }
 
 /**
