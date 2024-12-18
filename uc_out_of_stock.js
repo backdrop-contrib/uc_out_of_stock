@@ -1,6 +1,8 @@
 (function ($) {
   Backdrop.behaviors.ucOutOfStock =  {
     attach: function(context) {
+      
+      var ucOutOfStockForms = ucOutOfStockForms || new Array();
 
       if(typeof console === "undefined") {
         console = {log: function() {}};
@@ -130,10 +132,9 @@
         });
       }
 
-      var forms = new Array();
       $("form[id*=uc-product-add-to-cart-form], form[id*=uc-catalog-buy-it-now-form]").not('.uc-out-stock-processed').each(function() {
         $(this).addClass('uc-out-stock-processed');
-        forms.push($(this));
+        ucOutOfStockForms.push($(this));
         if (Backdrop.settings.uc_out_of_stock.throbber) {
           $("input:submit.node-add-to-cart,input:submit.list-add-to-cart,button.node-add-to-cart,button.list-add-to-cart", $(this)).before('<div class="uc_out_of_stock_throbbing">&nbsp;&nbsp;&nbsp;&nbsp;</div>');
         }
@@ -163,7 +164,7 @@
         */
       });
 
-      checkStock(forms);
+      checkStock(ucOutOfStockForms);
     }
   }
 
