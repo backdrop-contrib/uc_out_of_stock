@@ -1,178 +1,143 @@
 (function ($) {
-  Backdrop.behaviors.ucOutOfStock =  {
-    attach: function(context) {
+  Backdrop.behaviors.ucOutOfStock = {
+    attach: function (context) {
 
-      if(typeof console === "undefined") {
-        console = {log: function() {}};
-      };
+      if (typeof console === 'undefined') {
+        console = {log: function () {}};
+      }
 
-      // Your code here
-      attrid = 'edit-attributes';
+      var buttonSelector = 'input:submit.node-add-to-cart,input:submit.list-add-to-cart,button.node-add-to-cart,button.list-add-to-cart';
 
       function checkStock(forms) {
-        var form_ids = new Array();
-        var node_ids = new Array();
-        var attr_ids = new Array();
-        $.each(forms, function(index, form) {
-          var product = new Object();
-          var attributes = new Object();
+        var form_ids = [];
+        var node_ids = [];
+        var attr_ids = [];
 
-          var nid = form.attr('id').match(/(?:uc-product-add-to-cart-form-|catalog-buy-it-now-form-)([0-9]+)/)[1];
+        $.each(forms, function (index, form) {
+          var match = form.attr('id').match(/(?:uc-product-add-to-cart-form-|catalog-buy-it-now-form-)([0-9]+)/);
+          if (!match) {
+            return;
+          }
+          var nid = match[1];
 
-          attributes.found = new Object();
-          attributes.value = new Object();
-
-          $("[name*=attributes]", form).filter(':input:not(:text):not(:checkbox)').each(function(index){
-            // We are assuming the value has to be there, seems to be working for radios and checkboxes
-            if ($(this).attr('name').match(/attributes\[([0-9]*)\]/)) {
-              id = $(this).attr('name').match(/attributes\[([0-9]*)\]/)[1];
-              if ($(this).is(':radio')) {
-                attributes.found['attr'+id] = 1;
-                if ($(this).is(':checked')) {
-                  if ($(this).val()) {
-                    attributes.value['attr'+id] = 1;
-                    attr_ids.push(nid + ':' + id + ':' + $(this).val());
-                  }
-                }
+          // Only select and radio attributes can have SKU adjustments.
+          $('[name*=attributes]', form).filter(':input:not(:text):not(:checkbox)').each(function () {
+            var nameMatch = $(this).attr('name').match(/attributes\[([0-9]+)\]/);
+            if (!nameMatch) {
+              return;
+            }
+            var aid = nameMatch[1];
+            if ($(this).is(':radio')) {
+              if ($(this).is(':checked') && $(this).val()) {
+                attr_ids.push(nid + ':' + aid + ':' + $(this).val());
               }
-              else if ($(this).is('select')) {
-                attributes.found['attr'+id] = 1;
-                if ($(this).val()) {
-                  attributes.value['attr'+id] = 1;
-                  attr_ids.push(nid + ':' + id + ':' + $(this).val());
-                }
+            }
+            else if ($(this).is('select')) {
+              if ($(this).val()) {
+                attr_ids.push(nid + ':' + aid + ':' + $(this).val());
               }
             }
           });
 
-          // find qty
-          product['qty'] = 1;
-          qty = $(':input[name="qty"]', form).val()
-          if (qty) {
-            product['qty'] = qty;
-          }
-
-          // finding if attributes are found with no value
-          attributes.found.length = attributes.value.length = 0;
-          for (var i in attributes.found) {
-            if (i!='length') {
-              attributes.found.length++;
-            }
-          }
-
-          for (var i in attributes.value) {
-              if (i!='length') {
-              attributes.value.length++;
-            }
-          }
-
           if (Backdrop.settings.uc_out_of_stock.throbber) {
-            $(".uc_out_of_stock_throbbing", form).addClass('uc_oos_throbbing');
+            $('.uc_out_of_stock_throbbing', form).addClass('uc_oos_throbbing');
           }
           form_ids.push(form.attr('id'));
           node_ids.push(nid);
         });
 
-        if (form_ids.length == 0) {
+        if (form_ids.length === 0) {
           return;
         }
 
-        var post = { 'form_ids[]': form_ids, 'node_ids[]': node_ids, 'attr_ids[]': attr_ids }
+        var post = {'form_ids[]': form_ids, 'node_ids[]': node_ids, 'attr_ids[]': attr_ids};
         $.ajax({
           type: 'post',
-          url : Backdrop.settings.uc_out_of_stock.path,
+          url: Backdrop.settings.uc_out_of_stock.path,
           data: post,
-          success : function (data, textStatus) {
-            $.each(data, function(form_id, stock_level) {
+          success: function (data, textStatus) {
+            $.each(data, function (form_id, stock_level) {
               var form = $('#' + form_id);
-              if (stock_level != null && parseInt(stock_level) <= 0) {
-                // hide add to cart button
-                $("input:submit.node-add-to-cart,input:submit.list-add-to-cart,button.node-add-to-cart,button.list-add-to-cart", form).hide();
-                // hide qty label, field and wrapper if present and if it follows
-                // default theme output
-                $("label[for=" + $(":input[name=qty]", form).attr('id') + "]", form).hide();
-                $(":input[name=qty]", form).hide();
-                $("#" + $(":input[name=qty]", form).attr('id') + "-wrapper", form).hide();
-                // Show out of stock message
-                $(".uc_out_of_stock_html", form).html(Backdrop.settings.uc_out_of_stock.msg);
-
+              var qtyField = $(':input[name=qty]', form);
+              var qtyId = qtyField.attr('id');
+              if (stock_level !== null && parseInt(stock_level, 10) <= 0) {
+                $(buttonSelector, form).hide();
+                $('label[for=' + qtyId + ']', form).hide();
+                qtyField.hide();
+                $('#' + qtyId + '-wrapper', form).hide();
+                $('.uc_out_of_stock_html', form).html(Backdrop.settings.uc_out_of_stock.msg);
                 if (Backdrop.settings.uc_out_of_stock.instock) {
-                  $(".uc-out-of-stock-instock", form).hide();
+                  $('.uc-out-of-stock-instock', form).hide();
                 }
               }
               else {
-                // Put back the normal HTML of the add to cart form
-                $(".uc_out_of_stock_html", form).html('');
-                // show qty elements
-                $("label[for=" + $(":input[name=qty]", form).attr('id') + "]", form).show();
-                $(":input[name=qty]", form).show();
-                $("#" + $(":input[name=qty]", form).attr('id') + "-wrapper", form).show();
-                // show add to cart button
-                $("input:submit.node-add-to-cart,input:submit.list-add-to-cart,button.node-add-to-cart,button.list-add-to-cart", form).show();
+                $('.uc_out_of_stock_html', form).html('');
+                $('label[for=' + qtyId + ']', form).show();
+                qtyField.show();
+                $('#' + qtyId + '-wrapper', form).show();
+                $(buttonSelector, form).show();
                 if (Backdrop.settings.uc_out_of_stock.instock) {
-                  $(".uc-out-of-stock-instock", form).html(Backdrop.theme('ucOutOfStockInStock', stock_level));
-                  $(".uc-out-of-stock-instock", form).show();
+                  $('.uc-out-of-stock-instock', form).html(Backdrop.theme('ucOutOfStockInStock', stock_level));
+                  $('.uc-out-of-stock-instock', form).show();
                 }
               }
 
               if (Backdrop.settings.uc_out_of_stock.throbber) {
-                $(".uc_out_of_stock_throbbing", form).removeClass('uc_oos_throbbing');
+                $('.uc_out_of_stock_throbbing', form).removeClass('uc_oos_throbbing');
               }
             });
           },
-          error : function (jqXHR, textStatus, errorThrown) {
+          error: function (jqXHR, textStatus, errorThrown) {
             console.log('uc_out_of_stock: ' + textStatus + ': ' + jqXHR.responseText);
             if (Backdrop.settings.uc_out_of_stock.throbber) {
-              $(".uc_out_of_stock_throbbing").removeClass('uc_oos_throbbing');
+              $('.uc_out_of_stock_throbbing').removeClass('uc_oos_throbbing');
             }
           },
           dataType: 'json'
         });
       }
 
-      var forms = new Array();
-      $("form[id*=uc-product-add-to-cart-form], form[id*=uc-catalog-buy-it-now-form]").not('.uc-out-stock-processed').each(function() {
-        $(this).addClass('uc-out-stock-processed');
-        forms.push($(this));
+      var forms = [];
+      $('form[id*=uc-product-add-to-cart-form], form[id*=uc-catalog-buy-it-now-form]').not('.uc-out-stock-processed').each(function () {
+        var form = $(this);
+        form.addClass('uc-out-stock-processed');
+        forms.push(form);
+
         if (Backdrop.settings.uc_out_of_stock.throbber) {
-          $("input:submit.node-add-to-cart,input:submit.list-add-to-cart,button.node-add-to-cart,button.list-add-to-cart", $(this)).before('<div class="uc_out_of_stock_throbbing">&nbsp;&nbsp;&nbsp;&nbsp;</div>');
+          $(buttonSelector, form).before('<div class="uc_out_of_stock_throbbing">&nbsp;&nbsp;&nbsp;&nbsp;</div>');
         }
 
         if (Backdrop.settings.uc_out_of_stock.instock) {
-          if ($(':input[name="qty"][type!="hidden"]', $(this)).length) {
-            $(":input[name=qty]", $(this)).after('<div class="uc-out-of-stock-instock"></div>');
+          if ($(':input[name="qty"][type!="hidden"]', form).length) {
+            $(':input[name=qty]', form).after('<div class="uc-out-of-stock-instock"></div>');
           }
           else {
-            $("input:submit.node-add-to-cart,input:submit.list-add-to-cart,button.node-add-to-cart,button.list-add-to-cart", $(this)).before('<div class="uc-out-of-stock-instock"></div>');
+            $(buttonSelector, form).before('<div class="uc-out-of-stock-instock"></div>');
           }
         }
 
-        $("input:submit.node-add-to-cart,input:submit.list-add-to-cart,button.node-add-to-cart,button.list-add-to-cart", $(this)).after('<div class="uc_out_of_stock_html"></div>');
-        var form = $(this);
+        $(buttonSelector, form).after('<div class="uc_out_of_stock_html"></div>');
 
-        $("[name*=attributes]", $(this)).filter(':input:not(:text):not(:checkbox)').change(function(){
+        $('[name*=attributes]', form).filter(':input:not(:text):not(:checkbox)').change(function () {
           checkStock([form]);
         });
-        /* TODO: Feature request - support qty field, would make sense if cart
-         * contents are checked in the server as well as just stock
-         */
-        /*
-        $(":input[name=qty]", $(this)).keyup(function(){
-          checkStock(eachForm);
-        });
-        */
       });
 
       checkStock(forms);
     }
-  }
+  };
 
   Backdrop.theme.prototype.ucOutOfStockInStock = function (stock) {
-    if (stock == undefined) {
+    // Unknown stock (no stock record, or attributes not fully selected yet).
+    if (stock === undefined || stock === null) {
       return Backdrop.t('In stock');
     }
-    else {
-      return Backdrop.t('@stock in stock', {'@stock' : stock});
+    // Optional threshold: show the exact number only when the remaining
+    // stock is at or below the configured value (0 = always show the number).
+    var threshold = parseInt(Backdrop.settings.uc_out_of_stock.instock_threshold, 10) || 0;
+    if (threshold > 0 && parseInt(stock, 10) > threshold) {
+      return Backdrop.t('In stock');
     }
+    return Backdrop.t('@stock in stock', {'@stock': stock});
   };
 })(jQuery);
