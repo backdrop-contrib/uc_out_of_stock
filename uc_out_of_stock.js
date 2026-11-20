@@ -12,17 +12,26 @@
 
       function ensureDisplay(form) {
         if (!Backdrop.settings.uc_out_of_stock.instock) {
-          return;
+            return;
         }
         if ($('.uc-out-of-stock-instock', form).length) {
-          return;
+            return;
         }
+        var display = $('<div class="uc-out-of-stock-instock"></div>');
         var qtyField = $(':input[name=qty]', form);
-        if (qtyField.length && qtyField.attr('type') !== 'hidden') {
-          qtyField.after('<div class="uc-out-of-stock-instock"></div>');
-        }
+        if (qtyField.length) {
+          // Place the message above the whole quantity form item, directly below
+          // the attributes.
+          var item = qtyField.closest('.form-item');
+          if (item.length) {
+            item.before(display);
+          }
+          else {
+            qtyField.before(display);
+          }
+          }
         else {
-          $(buttonSelector, form).before('<div class="uc-out-of-stock-instock"></div>');
+          $(buttonSelector, form).before(display);
         }
       }
 
