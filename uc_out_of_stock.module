@@ -37,6 +37,7 @@ function uc_out_of_stock_form_alter(&$form, &$form_state, $form_id) {
           $settings_js['uc_out_of_stock']['throbber'] = (bool) config_get('uc_out_of_stock.settings', 'uc_out_of_stock_throbber');
           $settings_js['uc_out_of_stock']['instock'] = (bool) config_get('uc_out_of_stock.settings', 'uc_out_of_stock_instock');
           $settings_js['uc_out_of_stock']['instock_threshold'] = (int) config_get('uc_out_of_stock.settings', 'uc_out_of_stock_instock_threshold');
+          $settings_js['uc_out_of_stock']['debug'] = (bool) config_get('uc_out_of_stock.settings', 'uc_out_of_stock_debug');
           $settings_js['uc_out_of_stock']['msg'] = check_markup($text['value'], $text['format']);
           backdrop_add_js($settings_js, 'setting');
         }
@@ -142,22 +143,32 @@ function uc_out_of_stock_getstockinfo_from_model($model) {
  *   without SKU adjustment) are ignored. If several combinations match, the
  *   most specific one wins.
  * - If an adjustment matches, only its own SKU is checked. If this SKU has no
- *   active stock record, stock is not tracked for it (empty result); the main
- *   SKU is NOT used as a fallback because the cart uses the adjusted SKU.
+ *   active stock record, stock is not tracked for it and the result is empty.
+ *   The main SKU is never used as a substitute, because the cart uses the
+ *   adjusted SKU.
  * - If no adjustment matches, the cart uses the main SKU, so it is checked.
  *
  * @param int $nid
  *   Node id.
  * @param array $attrs
  *   Selected attributes (aid => oid).
+ * @param array $debug
+ *   Optional by-reference array that receives diagnostic information.
  *
  * @return array
  *   Array with 'stock' and 'model', or an empty array if unknown/untracked.
  */
-function uc_out_of_stock_getstockinfo($nid, $attrs) {
+function uc_out_of_stock_getstockinfo($nid, $attrs, &$debug = NULL) {
   $stockinfo = array();
   $nid = (int) $nid;
   $attrs = _uc_out_of_stock_normalize_attrs($attrs);
+  $debug = array(
+    'nid' => $nid,
+    'attrs' => $attrs,
+    'reason' => '',
+    'model' => NULL,
+    'rows' => array(),
+  );
   $query_main_sku = TRUE;
 
   if (module_exists('uc_attribute')) {
@@ -172,6 +183,13 @@ function uc_out_of_stock_getstockinfo($nid, $attrs) {
       }
       $row->combination = _uc_out_of_stock_normalize_attrs($combination);
       $rows[] = $row;
+      $debug['rows'][] = array(
+        'combination' => $row->combination,
+        'model' => $row->model,
+        'sku' => $row->sku,
+        'active' => $row->active,
+        'stock' => $row->stock,
+      );
       foreach (array_keys($row->combination) as $aid) {
         $adjusted_aids[$aid] = $aid;
       }
@@ -179,11 +197,16 @@ function uc_out_of_stock_getstockinfo($nid, $attrs) {
 
     if ($rows) {
       // Not all adjusted attributes selected yet: the SKU is not determined.
-      // (Also covers catalog list views, where no attributes are sent.)
+      $missing = array();
       foreach ($adjusted_aids as $aid) {
         if (!isset($attrs[$aid])) {
-          return array();
+          $missing[] = $aid;
         }
+      }
+      if ($missing) {
+        $debug['reason'] = 'partial_selection';
+        $debug['missing_aids'] = $missing;
+        return array();
       }
 
       $best = NULL;
@@ -204,11 +227,25 @@ function uc_out_of_stock_getstockinfo($nid, $attrs) {
 
       if ($best) {
         $query_main_sku = FALSE;
-        if (isset($best->sku) && $best->active && is_numeric($best->stock)) {
+        $debug['reason'] = 'matched';
+        $debug['model'] = $best->model;
+        if (!empty($best->active) && is_numeric($best->stock)) {
           $stockinfo['stock'] = $best->stock;
           $stockinfo['model'] = $best->model;
         }
+        else {
+          // The adjusted SKU exists but its stock is not tracked. Reporting
+          // the main SKU stock here would be wrong, because the cart uses the
+          // adjusted SKU.
+          $debug['reason'] = 'matched_untracked';
+        }
       }
+      else {
+        $debug['reason'] = 'no_match_main';
+      }
+    }
+    else {
+      $debug['reason'] = 'no_adjustments';
     }
   }
 
@@ -217,7 +254,15 @@ function uc_out_of_stock_getstockinfo($nid, $attrs) {
     foreach ($result as $row) {
       $stockinfo['stock'] = $row->stock;
       $stockinfo['model'] = $row->model;
+      $debug['model'] = $row->model;
     }
+    if (!$stockinfo) {
+      $debug['reason'] .= '+main_untracked';
+    }
+  }
+
+  if (config_get('uc_out_of_stock.settings', 'uc_out_of_stock_debug')) {
+    watchdog('uc_out_of_stock', 'Stock lookup: @debug', array('@debug' => json_encode($debug)), WATCHDOG_DEBUG);
   }
 
   return $stockinfo;
@@ -246,17 +291,26 @@ function uc_out_of_stock_query() {
     }
   }
 
-  // Always resolve the SKU per node (with its attributes) so products with
-  // SKU adjustments never fall back to the stock of the main SKU.
+  $debug_enabled = (bool) config_get('uc_out_of_stock.settings', 'uc_out_of_stock_debug');
   $return = array();
+  $debug_out = array();
+
   foreach ($form_ids as $key => $form_id) {
     $form_id = (string) $form_id;
     $nid = (int) $node_ids[$key];
     $return[$form_id] = NULL;
-    $stockinfo = uc_out_of_stock_getstockinfo($nid, isset($attribs[$nid]) ? $attribs[$nid] : array());
+    $debug = NULL;
+    $stockinfo = uc_out_of_stock_getstockinfo($nid, isset($attribs[$nid]) ? $attribs[$nid] : array(), $debug);
     if ($stockinfo) {
       $return[$form_id] = (int) $stockinfo['stock'];
     }
+    if ($debug_enabled) {
+      $debug_out[$form_id] = $debug;
+    }
+  }
+
+  if ($debug_enabled) {
+    $return['_debug'] = $debug_out;
   }
 
   backdrop_json_output($return);
@@ -324,6 +378,12 @@ function uc_out_of_stock_settings($form, &$form_state) {
     '#title' => t('Disable JavaScript'),
     '#default_value' => $config->get('uc_out_of_stock_disable_js'),
     '#description' => t('If you disable JavaScript you will lose real-time checking of stock, support for checking for stock on attribute change and all of the HTML replacement configured above. Use it with caution. This can be useful if you think this module is in conflict with some other third-party Ubercart module and you want to keep the server side validation of this module.'),
+  );
+  $form['advanced']['uc_out_of_stock_debug'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Enable debug output'),
+    '#default_value' => $config->get('uc_out_of_stock_debug'),
+    '#description' => t('Adds the lookup details to the JSON response (browser console) and writes them to the watchdog log. Disable this in production.'),
   );
 
   return system_settings_form($form);

@@ -7,5 +7,6 @@
   "uc_out_of_stock_disable_js": false,
   "uc_out_of_stock_instock": true,
   "uc_out_of_stock_instock_threshold": 0,
-  "uc_out_of_stock_throbber": true
+  "uc_out_of_stock_throbber": true,
+  "uc_out_of_stock_debug": false
 }

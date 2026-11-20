@@ -7,6 +7,30 @@
       }
 
       var buttonSelector = 'input:submit.node-add-to-cart,input:submit.list-add-to-cart,button.node-add-to-cart,button.list-add-to-cart';
+      var formSelector = 'form[id*=uc-product-add-to-cart-form], form[id*=uc-catalog-buy-it-now-form]';
+      var attrSelector = 'form[id*=uc-product-add-to-cart-form] [name*=attributes], form[id*=uc-catalog-buy-it-now-form] [name*=attributes]';
+
+      function ensureDisplay(form) {
+        if (!Backdrop.settings.uc_out_of_stock.instock) {
+          return;
+        }
+        if ($('.uc-out-of-stock-instock', form).length) {
+          return;
+        }
+        var qtyField = $(':input[name=qty]', form);
+        if (qtyField.length && qtyField.attr('type') !== 'hidden') {
+          qtyField.after('<div class="uc-out-of-stock-instock"></div>');
+        }
+        else {
+          $(buttonSelector, form).before('<div class="uc-out-of-stock-instock"></div>');
+        }
+      }
+
+      function ensureMessage(form) {
+        if (!$('.uc_out_of_stock_html', form).length) {
+          $(buttonSelector, form).after('<div class="uc_out_of_stock_html"></div>');
+        }
+      }
 
       function checkStock(forms) {
         var form_ids = [];
@@ -51,20 +75,42 @@
         }
 
         var post = {'form_ids[]': form_ids, 'node_ids[]': node_ids, 'attr_ids[]': attr_ids};
+        if (Backdrop.settings.uc_out_of_stock.debug) {
+          console.log('uc_out_of_stock: request', post);
+        }
+
         $.ajax({
           type: 'post',
           url: Backdrop.settings.uc_out_of_stock.path,
           data: post,
           success: function (data, textStatus) {
+            if (Backdrop.settings.uc_out_of_stock.debug) {
+              console.log('uc_out_of_stock: response', data);
+            }
+
             $.each(data, function (form_id, stock_level) {
+              if (form_id.charAt(0) === '_') {
+                return;
+              }
               var form = $('#' + form_id);
+              if (!form.length) {
+                if (Backdrop.settings.uc_out_of_stock.debug) {
+                  console.log('uc_out_of_stock: form not found', form_id);
+                }
+                return;
+              }
+              ensureDisplay(form);
+              ensureMessage(form);
+
               var qtyField = $(':input[name=qty]', form);
               var qtyId = qtyField.attr('id');
               if (stock_level !== null && parseInt(stock_level, 10) <= 0) {
                 $(buttonSelector, form).hide();
-                $('label[for=' + qtyId + ']', form).hide();
+                if (qtyId) {
+                  $('label[for=' + qtyId + ']', form).hide();
+                  $('#' + qtyId + '-wrapper', form).hide();
+                }
                 qtyField.hide();
-                $('#' + qtyId + '-wrapper', form).hide();
                 $('.uc_out_of_stock_html', form).html(Backdrop.settings.uc_out_of_stock.msg);
                 if (Backdrop.settings.uc_out_of_stock.instock) {
                   $('.uc-out-of-stock-instock', form).hide();
@@ -72,9 +118,11 @@
               }
               else {
                 $('.uc_out_of_stock_html', form).html('');
-                $('label[for=' + qtyId + ']', form).show();
+                if (qtyId) {
+                  $('label[for=' + qtyId + ']', form).show();
+                  $('#' + qtyId + '-wrapper', form).show();
+                }
                 qtyField.show();
-                $('#' + qtyId + '-wrapper', form).show();
                 $(buttonSelector, form).show();
                 if (Backdrop.settings.uc_out_of_stock.instock) {
                   $('.uc-out-of-stock-instock', form).html(Backdrop.theme('ucOutOfStockInStock', stock_level));
@@ -97,44 +145,74 @@
         });
       }
 
+      // Delegated binding: survives the AJAX replacement of the attribute
+      // fields by Ubercart.
+      $(document).off('change.ucOutOfStock', attrSelector);
+      $(document).on('change.ucOutOfStock', attrSelector, function () {
+        var form = $(this).closest('form');
+        if (!form.length) {
+          return;
+        }
+        ensureDisplay(form);
+        ensureMessage(form);
+        checkStock([form]);
+      });
+
+      // Ubercart replaces the attribute wrapper after its own AJAX call.
+      // Re-check the stock once that request has finished.
+      $(document).off('ajaxComplete.ucOutOfStock');
+      $(document).on('ajaxComplete.ucOutOfStock', function (event, xhr, settings) {
+        if (settings.url && settings.url.indexOf('uc_out_of_stock/query') !== -1) {
+          return;
+        }
+        var forms = [];
+        $(formSelector).each(function () {
+          var form = $(this);
+          if (form.find('[name*=attributes]').length) {
+            ensureDisplay(form);
+            ensureMessage(form);
+            forms.push(form);
+          }
+        });
+        if (forms.length) {
+          checkStock(forms);
+        }
+      });
+
       var forms = [];
-      $('form[id*=uc-product-add-to-cart-form], form[id*=uc-catalog-buy-it-now-form]').not('.uc-out-stock-processed').each(function () {
+      $(formSelector).each(function () {
         var form = $(this);
-        form.addClass('uc-out-stock-processed');
+        if (form.data('ucOutOfStockProcessed')) {
+          return;
+        }
+        form.data('ucOutOfStockProcessed', true);
         forms.push(form);
 
         if (Backdrop.settings.uc_out_of_stock.throbber) {
           $(buttonSelector, form).before('<div class="uc_out_of_stock_throbbing">&nbsp;&nbsp;&nbsp;&nbsp;</div>');
         }
 
-        if (Backdrop.settings.uc_out_of_stock.instock) {
-          if ($(':input[name="qty"][type!="hidden"]', form).length) {
-            $(':input[name=qty]', form).after('<div class="uc-out-of-stock-instock"></div>');
-          }
-          else {
-            $(buttonSelector, form).before('<div class="uc-out-of-stock-instock"></div>');
-          }
-        }
-
-        $(buttonSelector, form).after('<div class="uc_out_of_stock_html"></div>');
-
-        $('[name*=attributes]', form).filter(':input:not(:text):not(:checkbox)').change(function () {
-          checkStock([form]);
-        });
+        ensureDisplay(form);
+        ensureMessage(form);
       });
 
-      checkStock(forms);
+      if (forms.length) {
+        checkStock(forms);
+      }
     }
   };
 
   Backdrop.theme.prototype.ucOutOfStockInStock = function (stock) {
     // Unknown stock (no stock record, or attributes not fully selected yet).
-    if (stock === undefined || stock === null) {
+    if (stock === undefined || stock === null || stock === '') {
       return Backdrop.t('In stock');
     }
     // Optional threshold: show the exact number only when the remaining
     // stock is at or below the configured value (0 = always show the number).
-    var threshold = parseInt(Backdrop.settings.uc_out_of_stock.instock_threshold, 10) || 0;
+    var threshold = parseInt(Backdrop.settings.uc_out_of_stock.instock_threshold, 10);
+    if (isNaN(threshold)) {
+      threshold = 0;
+    }
     if (threshold > 0 && parseInt(stock, 10) > threshold) {
       return Backdrop.t('In stock');
     }

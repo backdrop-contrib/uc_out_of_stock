@@ -41,3 +41,14 @@ function uc_out_of_stock_update_1001() {
     $config->save();
   }
 }
+
+/**
+ * Adds the debug setting.
+ */
+function uc_out_of_stock_update_1002() {
+  $config = config('uc_out_of_stock.settings');
+  if ($config->get('uc_out_of_stock_debug') === NULL) {
+    $config->set('uc_out_of_stock_debug', FALSE);
+    $config->save();
+  }
+}
