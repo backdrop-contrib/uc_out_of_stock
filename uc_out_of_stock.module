@@ -1,8 +1,7 @@
 <?php
-
 /**
  * @file
- * The Out of stock notification module file
+ * The Out of stock notification module file.
  *
  * It provides both client side and server side stock validation.
  */
@@ -12,32 +11,34 @@
  */
 function uc_out_of_stock_config_info() {
   $prefixes['uc_out_of_stock.settings'] = array(
-    'label' => t('Module name settings'),
+    'label' => t('Out of stock notification settings'),
     'group' => t('Configuration'),
   );
+  return $prefixes;
 }
 
 /**
  * Implements hook_form_alter().
  */
 function uc_out_of_stock_form_alter(&$form, &$form_state, $form_id) {
-  $config = config('uc_out_of_stock.settings');
   static $settings_js = array();
 
   $forms = array('uc_product_add_to_cart_form', 'uc_catalog_buy_it_now_form');
   foreach ($forms as $id) {
-    if ( backdrop_substr($form_id, 0, backdrop_strlen($id)) == $id ) {
+    if (backdrop_substr($form_id, 0, backdrop_strlen($id)) == $id) {
 
-      // Only add Javascript if it was enabled
-      if (!$config->get('uc_out_of_stock_disable_js')) {
+      // Only add JavaScript if it was enabled.
+      if (!config_get('uc_out_of_stock.settings', 'uc_out_of_stock_disable_js')) {
         backdrop_add_js(backdrop_get_path('module', 'uc_out_of_stock') . '/uc_out_of_stock.js');
         backdrop_add_css(backdrop_get_path('module', 'uc_out_of_stock') . '/uc_out_of_stock.css');
         if (empty($settings_js)) {
+          $text = config_get('uc_out_of_stock.settings', 'uc_out_of_stock_text');
           $settings_js['uc_out_of_stock']['path'] = url('uc_out_of_stock/query');
-          $settings_js['uc_out_of_stock']['throbber'] = $config->get('uc_out_of_stock_throbber');
-          $settings_js['uc_out_of_stock']['instock'] = $config->get('uc_out_of_stock_instock');
-          $uc_out_of_stock_text = $config->get('uc_out_of_stock_text');
-          $settings_js['uc_out_of_stock']['msg'] = check_markup($uc_out_of_stock_text['value'], $uc_out_of_stock_text['format']);
+          $settings_js['uc_out_of_stock']['throbber'] = (bool) config_get('uc_out_of_stock.settings', 'uc_out_of_stock_throbber');
+          $settings_js['uc_out_of_stock']['instock'] = (bool) config_get('uc_out_of_stock.settings', 'uc_out_of_stock_instock');
+          $settings_js['uc_out_of_stock']['instock_threshold'] = (int) config_get('uc_out_of_stock.settings', 'uc_out_of_stock_instock_threshold');
+          $settings_js['uc_out_of_stock']['debug'] = (bool) config_get('uc_out_of_stock.settings', 'uc_out_of_stock_debug');
+          $settings_js['uc_out_of_stock']['msg'] = check_markup($text['value'], $text['format']);
           backdrop_add_js($settings_js, 'setting');
         }
       }
@@ -53,7 +54,6 @@ function uc_out_of_stock_form_alter(&$form, &$form_state, $form_id) {
   if ($form_id == 'uc_cart_checkout_form' || $form_id == 'uc_cart_checkout_review_form') {
     $form['#validate'][] = 'uc_out_of_stock_validate_form_checkout';
   }
-
 }
 
 /**
@@ -67,7 +67,7 @@ function uc_out_of_stock_menu() {
     'access arguments' => array('administer store'),
     'description' => 'Configure out of stock settings.',
     'page callback' => 'backdrop_get_form',
-    'page arguments' => array('uc_out_of_stock_settings_form'),
+    'page arguments' => array('uc_out_of_stock_settings'),
     'type' => MENU_NORMAL_ITEM,
   );
 
@@ -86,12 +86,39 @@ function uc_out_of_stock_menu() {
  ***************************/
 
 /**
+ * Normalizes an attribute selection to array(aid => oid), sorted by aid.
+ *
+ * Empty selections and non-scalar values (e.g. checkbox arrays) are dropped.
+ *
+ * @param mixed $attrs
+ *   Array of attribute id => option id.
+ *
+ * @return array
+ *   Integer attribute ids mapped to option ids as strings.
+ */
+function _uc_out_of_stock_normalize_attrs($attrs) {
+  $normalized = array();
+  if (!is_array($attrs)) {
+    return $normalized;
+  }
+  foreach ($attrs as $aid => $oid) {
+    if (is_scalar($oid) && (string) $oid !== '') {
+      $normalized[(int) $aid] = (string) $oid;
+    }
+  }
+  ksort($normalized);
+  return $normalized;
+}
+
+/**
  * Helper function to retrieve stock information directly from the stock table
- * querying it by model
+ * querying it by model.
  *
  * @param string $model
- * @return mixed
- *   Return an array of the stock information or null if NONE
+ *   The SKU.
+ *
+ * @return array
+ *   Array of the stock information or an empty array if none.
  */
 function uc_out_of_stock_getstockinfo_from_model($model) {
   $stockinfo = array();
@@ -105,150 +132,239 @@ function uc_out_of_stock_getstockinfo_from_model($model) {
 }
 
 /**
- * Helper function to retrieve stock information looked up by nid and attributes
+ * Helper function to retrieve stock information looked up by nid and
+ * attributes.
  *
- * @param integer $nid
- * @param array   $attrs
- * @return mixed
- *   Return an array of the stock information or null if NONE
+ * Rules:
+ * - If the product has SKU adjustments and not all attributes that take part
+ *   in an adjustment are selected yet, the stock is unknown (empty result).
+ * - Otherwise the adjustment whose combination matches the selection is used.
+ *   Attributes that are not part of the combination (e.g. a select attribute
+ *   without SKU adjustment) are ignored. If several combinations match, the
+ *   most specific one wins.
+ * - If an adjustment matches, only its own SKU is checked. If this SKU has no
+ *   active stock record, stock is not tracked for it and the result is empty.
+ *   The main SKU is never used as a substitute, because the cart uses the
+ *   adjusted SKU.
+ * - If no adjustment matches, the cart uses the main SKU, so it is checked.
+ *
+ * @param int $nid
+ *   Node id.
+ * @param array $attrs
+ *   Selected attributes (aid => oid).
+ * @param array $debug
+ *   Optional by-reference array that receives diagnostic information.
+ *
+ * @return array
+ *   Array with 'stock' and 'model', or an empty array if unknown/untracked.
  */
-
-/**
- * @todo Please document this function.
- * @see http://drupal.org/node/1354
- */
-function uc_out_of_stock_getstockinfo($nid, $attrs) {
+function uc_out_of_stock_getstockinfo($nid, $attrs, &$debug = NULL) {
   $stockinfo = array();
-  // Query main sku is true by default, if some attribute combination is found,
-  // it will be set to FALSE
-  // If the combination was not found, and all attributes were indeed selected, we are assuming that some
-  // combination shares an SKU with the actual product, thus, the product have to be queried as well.
+  $nid = (int) $nid;
+  $attrs = _uc_out_of_stock_normalize_attrs($attrs);
+  $debug = array(
+    'nid' => $nid,
+    'attrs' => $attrs,
+    'reason' => '',
+    'model' => NULL,
+    'rows' => array(),
+  );
   $query_main_sku = TRUE;
+
   if (module_exists('uc_attribute')) {
-    // if attributes module exists, and product has attributes first search for attributes
-    $post_attrs = count($attrs);
-    $sql = "FROM {uc_product_adjustments} upa LEFT JOIN {uc_product_stock} ups ON ups.sku = upa.model WHERE upa.nid = :nid";
-    $db_attrs = db_query('SELECT COUNT(*) ' . $sql, array(':nid' => $nid))->fetchField();
-    if ($post_attrs && $db_attrs > 0) {
-      $result = db_query('SELECT * ' . $sql, array(':nid' => $nid));
-      foreach ($result as $row) {
-        $combination = unserialize($row->combination);
-        // Apparently, on D6, one entry of the stock table has always the main SKU regardless the adjustments settings
-        // Therefor, if the join gives a null record for the stock table, the main sku will be queried as well
-        if ( isset($row->sku) && $combination == $attrs ) {
-          // Because a combination is found, don't look for the main SKU
-          $query_main_sku = FALSE;
-          // Only check if active
-          if ($row->active) {
-            $stockinfo['stock'] = $row->stock;
-            $stockinfo['model'] = $row->model;
+    $result = db_query('SELECT upa.combination, upa.model, ups.sku, ups.active, ups.stock FROM {uc_product_adjustments} upa LEFT JOIN {uc_product_stock} ups ON ups.sku = upa.model WHERE upa.nid = :nid', array(':nid' => $nid));
+
+    $rows = array();
+    $adjusted_aids = array();
+    foreach ($result as $row) {
+      $combination = unserialize($row->combination);
+      if (!is_array($combination) || !count($combination)) {
+        continue;
+      }
+      $row->combination = _uc_out_of_stock_normalize_attrs($combination);
+      $rows[] = $row;
+      $debug['rows'][] = array(
+        'combination' => $row->combination,
+        'model' => $row->model,
+        'sku' => $row->sku,
+        'active' => $row->active,
+        'stock' => $row->stock,
+      );
+      foreach (array_keys($row->combination) as $aid) {
+        $adjusted_aids[$aid] = $aid;
+      }
+    }
+
+    if ($rows) {
+      // Not all adjusted attributes selected yet: the SKU is not determined.
+      $missing = array();
+      foreach ($adjusted_aids as $aid) {
+        if (!isset($attrs[$aid])) {
+          $missing[] = $aid;
+        }
+      }
+      if ($missing) {
+        $debug['reason'] = 'partial_selection';
+        $debug['missing_aids'] = $missing;
+        return array();
+      }
+
+      $best = NULL;
+      $best_size = -1;
+      foreach ($rows as $row) {
+        $match = TRUE;
+        foreach ($row->combination as $aid => $oid) {
+          if (!isset($attrs[$aid]) || $attrs[$aid] !== $oid) {
+            $match = FALSE;
+            break;
           }
         }
+        if ($match && count($row->combination) > $best_size) {
+          $best = $row;
+          $best_size = count($row->combination);
+        }
+      }
+
+      if ($best) {
+        $query_main_sku = FALSE;
+        $debug['reason'] = 'matched';
+        $debug['model'] = $best->model;
+        if (!empty($best->active) && is_numeric($best->stock)) {
+          $stockinfo['stock'] = $best->stock;
+          $stockinfo['model'] = $best->model;
+        }
+        else {
+          // The adjusted SKU exists but its stock is not tracked. Reporting
+          // the main SKU stock here would be wrong, because the cart uses the
+          // adjusted SKU.
+          $debug['reason'] = 'matched_untracked';
+        }
+      }
+      else {
+        $debug['reason'] = 'no_match_main';
       }
     }
     else {
-      // If there are attributes for the product, but no attributes were sent, do nothing
-      // as it's probably coming from the catalog table list view and we can't
-      // disable the add to cart button for products with attributes
-      if ($post_attrs == 0 && $db_attrs > 0) {
-        $query_main_sku = FALSE;
-      }
+      $debug['reason'] = 'no_adjustments';
     }
   }
 
   if ($query_main_sku) {
-    // seach for main product
-    $result = db_query("SELECT * FROM {uc_products} up LEFT JOIN {uc_product_stock} ups ON ups.sku = up.model WHERE up.nid = :nid AND ups.active = 1", array(':nid' => $nid));
+    $result = db_query("SELECT ups.stock, up.model FROM {uc_products} up LEFT JOIN {uc_product_stock} ups ON ups.sku = up.model WHERE up.nid = :nid AND ups.active = 1", array(':nid' => $nid));
     foreach ($result as $row) {
       $stockinfo['stock'] = $row->stock;
       $stockinfo['model'] = $row->model;
+      $debug['model'] = $row->model;
     }
+    if (!$stockinfo) {
+      $debug['reason'] .= '+main_untracked';
+    }
+  }
+
+  if (config_get('uc_out_of_stock.settings', 'uc_out_of_stock_debug')) {
+    watchdog('uc_out_of_stock', 'Stock lookup: @debug', array('@debug' => json_encode($debug)), WATCHDOG_DEBUG);
   }
 
   return $stockinfo;
 }
 
 /**
- * @todo Please document this function.
- * @see http://drupal.org/node/1354
+ * Menu callback: returns the stock level for each requested form as JSON.
  */
 function uc_out_of_stock_query() {
-  if (!isset($_POST['form_ids']) || !isset($_POST['node_ids'])) {
-    print 'Missing form_ids and/or node_ids.';
-    exit;
-  }
-  if (count($_POST['form_ids']) != count($_POST['node_ids'])) {
-    print 'Different amount of form_ids than node_ids.';
-    exit;
+  $form_ids = (isset($_POST['form_ids']) && is_array($_POST['form_ids'])) ? array_values($_POST['form_ids']) : array();
+  $node_ids = (isset($_POST['node_ids']) && is_array($_POST['node_ids'])) ? array_values($_POST['node_ids']) : array();
+
+  if (!count($form_ids) || count($form_ids) != count($node_ids)) {
+    backdrop_add_http_header('Status', '400 Bad Request');
+    print 'Missing or inconsistent form_ids and node_ids.';
+    backdrop_exit();
   }
 
-  if (count($_POST['node_ids']) == 0) {
-    print 'No node_ids sent.';
-    exit;
-  }
-
-  $return = array_combine($_POST['form_ids'], array_fill(0, count($_POST['form_ids']), NULL));
-  // If no attributes given we can do one query to fetch everything
-  $filtered_attrs = (isset($_POST['attr_ids'])) ? array_filter($_POST['attr_ids']) : '';
-  if (empty($filtered_attrs)) {
-    $result = db_query('SELECT ups.stock, up.nid FROM {uc_products} up
-                        LEFT JOIN {uc_product_stock} ups ON ups.sku = up.model
-                        WHERE up.nid IN(:nids)
-                        AND ups.active = 1', array(':nids' => $_POST['node_ids']));
-    foreach ($result as $product) {
-      $key = array_search($product->nid, $_POST['node_ids']);
-      $return[$_POST['form_ids'][$key]] = $product->stock;
-    }
-  }
-  else {
-    $attribs = array();
+  $attribs = array();
+  if (isset($_POST['attr_ids']) && is_array($_POST['attr_ids'])) {
     foreach ($_POST['attr_ids'] as $value) {
-      list($nid, $attr_id, $attr_val) = explode(':', $value);
-      $attribs[$nid][$attr_id] = $attr_val;
-    }
-
-    foreach ($_POST['node_ids'] as $key => $nid) {
-      $stockinfo = uc_out_of_stock_getstockinfo($nid, isset($attribs[$nid]) ? $attribs[$nid] : array());
-      if ($stockinfo) {
-        $return[$_POST['form_ids'][$key]] = $stockinfo['stock'];
+      $parts = explode(':', (string) $value);
+      if (count($parts) == 3) {
+        $attribs[(int) $parts[0]][(int) $parts[1]] = $parts[2];
       }
     }
   }
 
-  // if there is some response, print it
-  print backdrop_json_output($return);
-  exit;
+  $debug_enabled = (bool) config_get('uc_out_of_stock.settings', 'uc_out_of_stock_debug');
+  $return = array();
+  $debug_out = array();
+
+  foreach ($form_ids as $key => $form_id) {
+    $form_id = (string) $form_id;
+    $nid = (int) $node_ids[$key];
+    $return[$form_id] = NULL;
+    $debug = NULL;
+    $stockinfo = uc_out_of_stock_getstockinfo($nid, isset($attribs[$nid]) ? $attribs[$nid] : array(), $debug);
+    if ($stockinfo) {
+      $return[$form_id] = (int) $stockinfo['stock'];
+    }
+    if ($debug_enabled) {
+      $debug_out[$form_id] = $debug;
+    }
+  }
+
+  if ($debug_enabled) {
+    $return['_debug'] = $debug_out;
+  }
+
+  backdrop_json_output($return);
+  backdrop_exit();
 }
 
 /**
- * @todo Please document this function.
- * @see http://drupal.org/node/1354
+ * Settings form.
  */
-function uc_out_of_stock_settings_form() {
+function uc_out_of_stock_settings($form, &$form_state) {
+  $form['#config'] = 'uc_out_of_stock.settings';
   $config = config('uc_out_of_stock.settings');
 
   $form['uc_out_of_stock_throbber'] = array(
     '#type' => 'checkbox',
     '#title' => t('Display throbber'),
     '#default_value' => $config->get('uc_out_of_stock_throbber'),
-    '#description' => t('Display a throbber (animated wheel) next to add to cart button.'),
+    '#description' => t('Display a throbber (animated wheel) next to add to cart button. This can be themed/styled and removed via CSS as well, but you can just disable it with this setting.'),
   );
 
   $form['uc_out_of_stock_instock'] = array(
     '#type' => 'checkbox',
     '#title' => t('Display in stock information'),
     '#default_value' => $config->get('uc_out_of_stock_instock'),
-    '#description' => t('Display how many items are in stock above the add to cart button or below the quantity field if it is present.'),
+    '#description' => t('Display how many items are in stock above the add to cart button or below the qty field if it is present. If the product has attributes with SKU adjustments, the stock is only known after all of these attributes are selected; until then (or if stock is not tracked for the SKU) a generic "In stock" message is shown.'),
   );
-  if (module_exists('uc_attribute')) {
-    $form['uc_out_of_stock_instock']['#description'] .= ' ' . t('If product has attributes, it may be impossible to know the stock level until the attribute is selected. In this case it will simply display a default "In stock" message.');
-  }
+
+  $form['uc_out_of_stock_instock_threshold'] = array(
+    '#type' => 'number',
+    '#title' => t('Show exact quantity only up to'),
+    '#default_value' => (int) $config->get('uc_out_of_stock_instock_threshold'),
+    '#min' => 0,
+    '#description' => t('If set to a value greater than 0, the exact quantity is shown only when the remaining stock is at or below this value; otherwise a generic "In stock" message is shown. 0 always shows the exact quantity.'),
+    '#states' => array(
+      'visible' => array(
+        ':input[name="uc_out_of_stock_instock"]' => array('checked' => TRUE),
+      ),
+    ),
+  );
+
+  $text = $config->get('uc_out_of_stock_text');
+  $rendered = check_markup($text['value'], $text['format']);
+  $description = t('<div class="description">This is the value below rendered as you would expect to see it</div>');
+  $rendered = '<div style="border: 1px solid lightgrey; padding: 10px;">' . $rendered . '</div>' . $description;
+
+  $form['uc_out_of_stock_demo'] = array(
+    '#markup' => $rendered,
+  );
   $form['uc_out_of_stock_text'] = array(
     '#type' => 'text_format',
     '#title' => t('Out of stock replacement HTML'),
-    '#default_value' => $config->get('uc_out_of_stock_text.value'),
-    '#format' => $config->get('uc_out_of_stock_text.format'),
-    '#description' => t('The message that will replace the \'Add To Cart\' button if no stock is available.'),
+    '#default_value' => $text['value'],
+    '#format' => $text['format'],
+    '#description' => t('The HTML that will replace the Add To Cart button if no stock is available.'),
   );
 
   $form['advanced'] = array(
@@ -259,58 +375,36 @@ function uc_out_of_stock_settings_form() {
   );
   $form['advanced']['uc_out_of_stock_disable_js'] = array(
     '#type' => 'checkbox',
-    '#title' => t('Disable Javascript'),
+    '#title' => t('Disable JavaScript'),
     '#default_value' => $config->get('uc_out_of_stock_disable_js'),
-    '#description' => t('If you disable Javascript you will lose real-time checking of stock, support for checking for stock on attribute change and all of the HTML replacement configured above. Use it with caution. This can be useful if you think this module is in conflict with some other third-party Ubercart module and you want to keep the server side validation of this module.'),
+    '#description' => t('If you disable JavaScript you will lose real-time checking of stock, support for checking for stock on attribute change and all of the HTML replacement configured above. Use it with caution. This can be useful if you think this module is in conflict with some other third-party Ubercart module and you want to keep the server side validation of this module.'),
+  );
+  $form['advanced']['uc_out_of_stock_debug'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Enable debug output'),
+    '#default_value' => $config->get('uc_out_of_stock_debug'),
+    '#description' => t('Adds the lookup details to the JSON response (browser console) and writes them to the watchdog log. Disable this in production.'),
   );
 
-  // Add a submit button
-  $form['actions']['#type'] = 'actions';
-  $form['actions']['submit'] = array(
-    '#type' => 'submit',
-    '#value' => t('Save configuration'),
-  );
-
-  return $form;
+  return system_settings_form($form);
 }
 
 /**
- * Submit handler for uc_out_of_stock_settings_form().
- */
-function uc_out_of_stock_settings_form_submit($form, &$form_state) {
-  $config = config('uc_out_of_stock.settings');
-  $config->set('uc_out_of_stock_throbber', $form_state['values']['uc_out_of_stock_throbber']);
-  $config->set('uc_out_of_stock_instock', $form_state['values']['uc_out_of_stock_instock']);
-  // Save each file as permanent, preventing it from being deleted. 
-  if (isset($form_state['values']['uc_out_of_stock_text']['value'])) {
-    $config->set('uc_out_of_stock_text', $form_state['values']['uc_out_of_stock_text']);
-    $fids = filter_parse_file_fids($form_state['values']['uc_out_of_stock_text']['value']);
-    $files = file_load_multiple($fids);
-    foreach ($files as $fid => $file) {
-      if ($file && $file->status !== FILE_STATUS_PERMANENT) {
-        // This makes the file "self-referencing", so it will never be deleted.
-        file_usage_add($file, 'file', 'file', $file->fid);
-      }
-    }
-  }
-  $config->set('uc_out_of_stock_disable_js', $form_state['values']['uc_out_of_stock_disable_js']);
-  $config->save();
-
-  backdrop_set_message(t('The configuration options have been saved.'));
-}
-
-/**
- * Shared logic for add to cart validation in both form validation and
- * hook_add_to_cart
+ * Shared logic for add to cart validation.
  *
  * @param int $nid
+ *   Node id.
  * @param array $attrs
+ *   Selected attributes (aid => oid).
+ * @param int $qty_add
+ *   Quantity being added.
+ *
  * @return mixed
- *   FALSE if no error
- *   Error message if error
+ *   FALSE if no error, error array (with 'msg') otherwise.
  */
 function uc_out_of_stock_validate_addtocart($nid, $attrs, $qty_add) {
   $error = FALSE;
+  $attrs = _uc_out_of_stock_normalize_attrs($attrs);
   $stockinfo = uc_out_of_stock_getstockinfo($nid, $attrs);
   if ($stockinfo) {
     if ($stockinfo['stock'] <= 0) {
@@ -336,13 +430,13 @@ function uc_out_of_stock_validate_addtocart($nid, $attrs, $qty_add) {
 
 /**
  * Validate the 'Add To Cart' form of each product preventing the addition of
- * out of stock items or more items that ones currently on stock.
+ * out of stock items or more items than currently in stock.
  *
- * Support teaser view, full node view and catalog view
+ * Supports teaser view, full node view and catalog view.
  */
 function uc_out_of_stock_validate_form_addtocart($form, &$form_state) {
-  // If there were previews form errors, such as missing attributes,
-  // prevent validation as infomration might not be complete.
+  // If there were previous form errors, such as missing attributes, skip
+  // validation as the information might not be complete.
   if (form_get_errors()) {
     return;
   }
@@ -351,15 +445,15 @@ function uc_out_of_stock_validate_form_addtocart($form, &$form_state) {
     $class = $form_state['clicked_button']['#attributes']['class'];
 
     // Uses the class of the add to cart button of both node view and catalog
-    // view to decide if we should validate stock or not
-    // i.e. If some other form_alter added another button, do nothing (uc_wishlist)
+    // view to decide if we should validate stock or not.
     if (in_array('node-add-to-cart', $class) || in_array('list-add-to-cart', $class)) {
       $attrs = isset($form_state['values']['attributes']) ? $form_state['values']['attributes'] : array();
 
       foreach ((array) $attrs as $aid => $oids) {
         $attribute = uc_attribute_load($aid);
-        // 1 is select and 2 is radio, the only supported attributes that may have stock adjustments
-        if ($attribute->display != 1 && $attribute->display != 2) {
+        // 1 is select and 2 is radio, the only supported attributes that may
+        // have stock adjustments.
+        if (!$attribute || ($attribute->display != 1 && $attribute->display != 2)) {
           unset($attrs[$aid]);
         }
       }
@@ -375,15 +469,14 @@ function uc_out_of_stock_validate_form_addtocart($form, &$form_state) {
 }
 
 /**
- * Helper function that would validate items in the cart referenced in a form
- * Used in @uc_out_of_stock_validate_form_checkout
- * Used in @uc_out_of_stock_validate_form_cart
+ * Validates items in the cart referenced in a form.
  *
  * @param array $items
+ *   Cart items.
+ * @param string $page
+ *   'cart' or 'checkout'.
  */
 function uc_out_of_stock_validate_cart_items($items, $page = 'cart') {
-  // just in the rare case (http://drupal.org/node/496782)
-  // that $items is not an array, do nothing
   if (!is_array($items)) {
     return;
   }
@@ -391,39 +484,36 @@ function uc_out_of_stock_validate_cart_items($items, $page = 'cart') {
   $cart_items = array();
   $stored_cart_items = uc_cart_get_contents();
 
-  // First group by model
+  // First group by model.
   foreach ($items as $k => $item) {
-    // Convert it to object just in case is an array (if coming from a form POST)
+    // Convert it to object just in case is an array (if coming from a form
+    // POST).
     $item = (object) $item;
 
     // Only process node products, to prevent discounts or other kind of things
-    // in the node to mess with this logic
-    if (!$item->nid) {
+    // in the node to mess with this logic.
+    if (empty($item->nid)) {
       continue;
     }
 
-    // Unserialize data if string
-    if (is_string($item->data)) {
+    // Unserialize data if string.
+    if (isset($item->data) && is_string($item->data)) {
       $item->data = unserialize($item->data);
     }
-    // If the items comes from the submitted cart, it doesn't have the model
-    // set, so we try to get it from the stored cart items which is filled
-    // properly with the model.
-    // For that, we assume that the sorting is the same, and if not,
-    // we provide an alternative method which is probably not
-    // very good in terms of performance, but the sorting of both arrays
-    // should be the same
+    // If the item comes from the submitted cart, it doesn't have the model
+    // set, so we try to get it from the stored cart items.
     if (!isset($item->model)) {
-      if (isset($stored_cart_items[$item->cart_item_id])) {
+      $stored_item = NULL;
+      if (isset($item->cart_item_id) && isset($stored_cart_items[$item->cart_item_id])) {
         $stored_item = $stored_cart_items[$item->cart_item_id];
       }
-      if (isset($stored_item) && $item->nid == $stored_item->nid && $item->data == $stored_item->data) {
+      if ($stored_item && $item->nid == $stored_item->nid && $item->data == $stored_item->data) {
         $item->model = $stored_item->model;
       }
       else {
-        foreach ($stored_cart_items as $stored_item) {
-          if ($item->nid == $stored_item->nid && $item->data == $stored_item->data) {
-            $item->model = $stored_item->model;
+        foreach ($stored_cart_items as $candidate) {
+          if ($item->nid == $candidate->nid && $item->data == $candidate->data) {
+            $item->model = $candidate->model;
           }
         }
       }
@@ -439,11 +529,11 @@ function uc_out_of_stock_validate_cart_items($items, $page = 'cart') {
     }
   }
 
-  // Now for each model, check the stock
+  // Now for each model, check the stock.
   foreach ($cart_items as $model => $cart_item) {
     $item = $cart_item['item'];
-    // Only validates if there are items on the cart, otherwise it's likely
-    // it's being tried to be removed by setting the qty to 0.
+    // Only validate if there are items in the cart, otherwise it's likely
+    // it's being removed by setting the qty to 0.
     if ($cart_item['qty'] > 0) {
       $stockinfo = uc_out_of_stock_getstockinfo_from_model($model);
       if ($stockinfo) {
@@ -452,24 +542,23 @@ function uc_out_of_stock_validate_cart_items($items, $page = 'cart') {
           if ($page == 'checkout') {
             $qty = $cart_item['qty'];
           }
+          $attrs = (is_array($item->data) && isset($item->data['attributes'])) ? $item->data['attributes'] : array();
           if ($stockinfo['stock'] <= 0) {
-            $error = _uc_out_of_stock_get_error('out_of_stock', $item->nid, isset($item->data['attributes']) ? $item->data['attributes'] : array(), $stockinfo['stock']);
+            $error = _uc_out_of_stock_get_error('out_of_stock', $item->nid, $attrs, $stockinfo['stock']);
           }
           else {
-            $error = _uc_out_of_stock_get_error('not_enough', $item->nid, isset($item->data['attributes']) ? $item->data['attributes'] : array(), $stockinfo['stock'], $qty);
+            $error = _uc_out_of_stock_get_error('not_enough', $item->nid, $attrs, $stockinfo['stock'], $qty);
           }
           form_set_error("items][{$cart_item['key']}][qty", $error['msg']);
         }
       }
     }
   }
-
 }
 
 /**
  * Validate the 'Order Checkout' and 'Order Review' form preventing the order
- * going through if the stock information have changed while the user was
- * browsing the site. (i.e. some other client has just bought the same item)
+ * going through if the stock information changed while the user was browsing.
  */
 function uc_out_of_stock_validate_form_checkout($form, &$form_state) {
   $items = uc_cart_get_contents();
@@ -477,56 +566,63 @@ function uc_out_of_stock_validate_form_checkout($form, &$form_state) {
 }
 
 /**
- * Validate the 'Shopping cart' form preventing the addition of more items that
- * the ones currently in stock.
+ * Validate the 'Shopping cart' form preventing more items than in stock.
  */
 function uc_out_of_stock_validate_form_cart($form, &$form_state) {
   $items = $form_state['values']['items'];
-  if (substr($form_state['clicked_button']['#name'], 0, 7) != 'remove-' && $form_state['clicked_button']['#id'] != 'edit-empty' ) {
+  $name = isset($form_state['clicked_button']['#name']) ? $form_state['clicked_button']['#name'] : '';
+  $id = isset($form_state['clicked_button']['#id']) ? $form_state['clicked_button']['#id'] : '';
+  if (substr($name, 0, 7) != 'remove-' && $id != 'edit-empty') {
     uc_out_of_stock_validate_cart_items($items, 'cart');
   }
 }
 
 /**
- * Helper function to properly format the form error messages across the
- * different validation hooks.
+ * Helper function to format the form error messages across the validators.
  *
- * @param <type> $error
- *   type of error
- * @param <type> $nid
- *   node id
- * @param <type> $attrs
- *   attributes array
- * @param <type> $stock
- *   stock of the current item
- * @param <type> $qty
- *  qty in cart
- * @param <type> $cart_item_id
- *   ID on the shopping cart
+ * @param string $type
+ *   'out_of_stock' or 'not_enough'.
+ * @param int $nid
+ *   Node id.
+ * @param array $attrs
+ *   Attributes array (aid => oid).
+ * @param int $stock
+ *   Stock of the current item.
+ * @param int $qty
+ *   Quantity already in the cart.
+ *
+ * @return array
+ *   Error array including the 'msg' key.
  */
 function _uc_out_of_stock_get_error($type, $nid, $attrs, $stock, $qty = 0) {
   $product = node_load($nid);
+  $attr_names = array();
+  $option_names = array();
 
-  if (count($attrs)) {
-    foreach ($attrs as $attr_id => $option_id) {
-      $attr = uc_attribute_load($attr_id);
-      $option = uc_attribute_option_load($option_id);
+  foreach ((array) $attrs as $attr_id => $option_id) {
+    if (!is_scalar($option_id) || (string) $option_id === '') {
+      continue;
+    }
+    $attr = uc_attribute_load($attr_id);
+    $option = uc_attribute_option_load($option_id);
+    if ($attr && $option) {
       $attr_names[] = $attr->name;
       $option_names[] = $option->name;
     }
   }
 
+  $error = array();
   $error['stock'] = $stock;
   $error['qty_in_cart'] = $qty;
   $error['type'] = $type;
-  $error['product'] = $product->title;
-  if (count($attrs)) {
+  $error['product'] = $product ? $product->title : '';
+  if (count($attr_names)) {
     $error['attributes'] = implode('/', $attr_names);
     $error['options'] = implode('/', $option_names);
   }
 
   if ($type == 'out_of_stock') {
-    if (count($attrs)) {
+    if (count($attr_names)) {
       $error['msg'] = t("We're sorry. The product @product (@options) is out of stock. Please consider trying this product with a different @attributes.", array('@product' => $error['product'], '@attributes' => $error['attributes'], '@options' => $error['options']));
     }
     else {
@@ -535,20 +631,19 @@ function _uc_out_of_stock_get_error($type, $nid, $attrs, $stock, $qty = 0) {
   }
 
   if ($type == 'not_enough') {
-    if (count($attrs)) {
-      $error['msg'] = t("We're sorry. We only have @qty of the product @product (@options) left in stock.", array('@qty' => format_plural($error['stock'], '1 unit', '@count units'), '@product' => $error['product'], '@options' => $error['options']));
+    if (count($attr_names)) {
+      $error['msg'] = t("We're sorry. We have now only @qty of the product @product (@options) left in stock.", array('@qty' => format_plural($error['stock'], '1 unit', '@count units'), '@product' => $error['product'], '@options' => $error['options']));
     }
     else {
-      $error['msg'] = t("We're sorry. We only have @qty of the product @product left in stock.", array('@qty' => format_plural($error['stock'], '1 unit', '@count units'), '@product' => $error['product']));
+      $error['msg'] = t("We're sorry. We have now only @qty of the product @product left in stock.", array('@qty' => format_plural($error['stock'], '1 unit', '@count units'), '@product' => $error['product']));
     }
     if ($error['qty_in_cart']) {
       $error['msg'] .= ' ' . t("You have currently @qty in your <a href=\"@cart-url\">shopping cart</a>.", array('@qty' => format_plural($error['qty_in_cart'], '1 unit', '@count units'), '@cart-url' => url('cart')));
     }
   }
 
-  // Invoke hook_uc_out_of_stock_error_alter() to allow all modules to alter the resulting error message.
+  // Allow all modules to alter the resulting error message.
   backdrop_alter('uc_out_of_stock_error', $error, $product);
 
   return $error;
 }
-

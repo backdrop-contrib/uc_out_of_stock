@@ -1,10 +1,12 @@
 {
-    "_config_name": "uc_out_of_stock.settings",
-    "uc_out_of_stock_disable_js": 0,
-    "uc_out_of_stock_throbber": 0,
-    "uc_out_of_stock_instock": 1,
-    "uc_out_of_stock_text": {
-        "value": "<p>Out of stock.</p>\r\n",
-        "format": "filtered_html"
-    }
+  "_config_name": "uc_out_of_stock.settings",
+  "uc_out_of_stock_text": {
+    "value": "<span class=\"uc-out-of-stock-message\">Out of stock</span>",
+    "format": "filtered_html"
+  },
+  "uc_out_of_stock_disable_js": false,
+  "uc_out_of_stock_instock": true,
+  "uc_out_of_stock_instock_threshold": 0,
+  "uc_out_of_stock_throbber": true,
+  "uc_out_of_stock_debug": false
 }

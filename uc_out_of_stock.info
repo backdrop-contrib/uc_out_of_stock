@@ -1,6 +1,11 @@
-name = Out of stock notification
-description = It tells the user if an item is out of stock. It supports attributes.
-backdrop = 1.x
 type = module
-dependencies[] =  uc_stock
+name = Out of stock notification
+description = Tells the customer if an item is out of stock and how many are available. Supports attributes.
+backdrop = 1.x
+
+configure = admin/store/settings/uc_out_of_stock
+stylesheets[all][] = uc_out_of_stock.css
+
+dependencies[] = uc_stock
+
 package = Ubercart - extra

@@ -1,43 +1,54 @@
 <?php
-
 /**
  * @file
  * (Un)Installation procedures.
- *
- * For now it basically removes the used variables.
  */
 
 /**
- * Implements hook_uninstall().
+ * Implements hook_update_last_removed().
  */
-function uc_out_of_stock_uninstall() {
-  config_clear('uc_out_of_stock.settings', 'uc_out_of_stock_text');
-  config_clear('uc_out_of_stock.settings', 'uc_out_of_stock_disable_js');
-  config_clear('uc_out_of_stock.settings', 'uc_out_of_stock_instock');
-  config_clear('uc_out_of_stock.settings', 'uc_out_of_stock_throbber');
+function uc_out_of_stock_update_last_removed() {
+  return 7000;
 }
 
 /**
- * Implements hook_update_N().
+ * Moves the module variables to config.
  */
 function uc_out_of_stock_update_1000() {
   $config = config('uc_out_of_stock.settings');
-  $config->set('uc_out_of_stock_disable_js', update_variable_get('uc_out_of_stock_disable_js', false));
-  $config->set('uc_out_of_stock_throbber', update_variable_get('uc_out_of_stock_throbber', true));
-  $config->set('uc_out_of_stock_instock', update_variable_get('uc_out_of_stock_instock', true));
   $config->set('uc_out_of_stock_text', update_variable_get('uc_out_of_stock_text', array(
-    'value' => '<p>Out of stock.</p>\r\n', 
+    'value' => '<span class="uc-out-of-stock-message">Out of stock</span>',
     'format' => 'filtered_html',
   )));
-  update_variable_del('uc_out_of_stock_disable_js');
-  update_variable_del('uc_out_of_stock_throbber');
-  update_variable_del('uc_out_of_stock_instock');
+  $config->set('uc_out_of_stock_disable_js', (bool) update_variable_get('uc_out_of_stock_disable_js', FALSE));
+  $config->set('uc_out_of_stock_instock', (bool) update_variable_get('uc_out_of_stock_instock', TRUE));
+  $config->set('uc_out_of_stock_throbber', (bool) update_variable_get('uc_out_of_stock_throbber', TRUE));
+  $config->save();
+
   update_variable_del('uc_out_of_stock_text');
+  update_variable_del('uc_out_of_stock_disable_js');
+  update_variable_del('uc_out_of_stock_instock');
+  update_variable_del('uc_out_of_stock_throbber');
 }
 
 /**
- * Implements hook_install().
+ * Adds the in-stock display threshold setting.
  */
-function uc_out_of_stock_install() {
+function uc_out_of_stock_update_1001() {
+  $config = config('uc_out_of_stock.settings');
+  if ($config->get('uc_out_of_stock_instock_threshold') === NULL) {
+    $config->set('uc_out_of_stock_instock_threshold', 0);
+    $config->save();
+  }
+}
 
+/**
+ * Adds the debug setting.
+ */
+function uc_out_of_stock_update_1002() {
+  $config = config('uc_out_of_stock.settings');
+  if ($config->get('uc_out_of_stock_debug') === NULL) {
+    $config->set('uc_out_of_stock_debug', FALSE);
+    $config->save();
+  }
 }
